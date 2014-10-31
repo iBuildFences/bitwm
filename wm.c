@@ -1,7 +1,8 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <xcb/xcb.h>
-#include <xcb/xcb-symbols.h>
+#include <xcb/xcb_keysyms.h>
 
 int i; /* used for loops */
 
@@ -15,6 +16,8 @@ typedef struct binding
 	void (*function) (void);
 } binding;
 
+void exec_dmenu (void);
+xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
 
 int main (void)
 {
@@ -23,8 +26,8 @@ int main (void)
 	xcb_window_t root = xcb_setup_roots_iterator(setup).data->root;
 	keysyms = xcb_key_symbols_alloc(connection);
 
-	int numbindings = 1;
-	binding bindings[numbindings];
+	int num_bindings = 1;
+	binding bindings[num_bindings];
 
 	/*
 	uint32_t window = xcb_generate_id(connection);
@@ -45,12 +48,12 @@ int main (void)
 	xcb_map_window(connection, window);
 	*/
 
-	bindings[0].key_sym = 'r';
+	bindings[0].key_sym = 't';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
 	bindings[0].function = exec_dmenu;
 
 
-	for (i = 0; i < numbindings; i++)
+	for (i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
 		xcb_grab_key(connection, 1, root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
@@ -62,10 +65,12 @@ int main (void)
 	{
 		xcb_generic_event_t *event = xcb_wait_for_event(connection);
 		xcb_key_press_event_t *key_event;
-		if (event->response_type & ~0x80 == XCB_KEY_PRESS)
+		if (event->response_type == XCB_KEY_PRESS)
 		{
 			key_event = (xcb_key_press_event_t *) event;
-			event->*function();
+			for (i = 0; i < num_bindings; i++)
+				if (bindings[i].key_code == key_event->detail)
+					bindings[i].function();
 		}
 	}
 }
