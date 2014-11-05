@@ -14,7 +14,9 @@ typedef struct binding
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
 	void (*function) (void);
-} binding;
+} binding; 
+
+
 
 void exec_dmenu (void);
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
@@ -30,23 +32,27 @@ int main (void)
 	binding bindings[num_bindings];
 
 	/*
-	uint32_t window = xcb_generate_id(connection);
-	xcb_window_t *window = xcb_create_window(connection,
-						XCB_COPY_FROM_PARENT,
-						window,
-						root,
-						0,
-						0,
-						256,
-						256,
-						0,
-						NULL,
-						XCB_COPY_FROM_PARENT,
-						NULL);
+	   uint32_t window = xcb_generate_id(connection);
+	   xcb_window_t *window = xcb_create_window(connection,
+	   XCB_COPY_FROM_PARENT,
+	   window,
+	   root,
+	   0,
+	   0,
+	   256,
+	   256,
+	   0,
+	   NULL,
+	   XCB_COPY_FROM_PARENT,
+	   NULL);
 
 
-	xcb_map_window(connection, window);
-	*/
+	   xcb_map_window(connection, window);
+	 */
+
+	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
+
+	xcb_change_window_attributes(connection, root, XCB_CW_EVENT_MASK, value);
 
 	bindings[0].key_sym = 't';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
@@ -65,12 +71,19 @@ int main (void)
 	{
 		xcb_generic_event_t *event = xcb_wait_for_event(connection);
 		xcb_key_press_event_t *key_event;
-		if (event->response_type == XCB_KEY_PRESS)
+		xcb_map_notify_event_t *map_event;
+
+		switch (event->response_type)
 		{
-			key_event = (xcb_key_press_event_t *) event;
-			for (i = 0; i < num_bindings; i++)
-				if (bindings[i].key_code == key_event->detail)
-					bindings[i].function();
+			case XCB_KEY_PRESS:
+				key_event = (xcb_key_press_event_t *) event;
+				for (i = 0; i < num_bindings; i++)
+					if (bindings[i].key_code == key_event->detail)
+						bindings[i].function();
+				break;
+			case XCB_MAP_NOTIFY:
+				map_event = (xcb_map_notify_event_t *) event;
+				break;
 		}
 	}
 }
@@ -80,23 +93,27 @@ void exec_dmenu (void)
 	system("exec dmenu_run");
 }
 
+void halve_window (void)
+{
+
+}
 
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
 {
-    xcb_keycode_t *keyp;
-    xcb_keycode_t key;
+	xcb_keycode_t *keyp;
+	xcb_keycode_t key;
 
-    /* We only use the first keysymbol, even if there are more. */
-    keyp = xcb_key_symbols_get_keycode(keysyms, keysym);
+	/* We only use the first keysymbol, even if there are more. */
+	keyp = xcb_key_symbols_get_keycode(keysyms, keysym);
 
-    if (keyp == NULL)
-    {
-        return 0;
-    }
+	if (keyp == NULL)
+	{
+		return 0;
+	}
 
-    key = *keyp;
-    free(keyp);
-    
-    return key;
+	key = *keyp;
+	free(keyp);
+
+	return key;
 }
 
