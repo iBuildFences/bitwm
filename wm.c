@@ -31,25 +31,6 @@ int main (void)
 	int num_bindings = 1;
 	binding bindings[num_bindings];
 
-	/*
-	   uint32_t window = xcb_generate_id(connection);
-	   xcb_window_t *window = xcb_create_window(connection,
-	   XCB_COPY_FROM_PARENT,
-	   window,
-	   root,
-	   0,
-	   0,
-	   256,
-	   256,
-	   0,
-	   NULL,
-	   XCB_COPY_FROM_PARENT,
-	   NULL);
-
-
-	   xcb_map_window(connection, window);
-	 */
-
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
 
 	xcb_change_window_attributes(connection, root, XCB_CW_EVENT_MASK, value);
@@ -103,7 +84,6 @@ xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
 	xcb_keycode_t *keyp;
 	xcb_keycode_t key;
 
-	/* We only use the first keysymbol, even if there are more. */
 	keyp = xcb_key_symbols_get_keycode(keysyms, keysym);
 
 	if (keyp == NULL)
