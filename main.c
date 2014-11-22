@@ -3,8 +3,9 @@
 
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
+#include <xcb/xproto.h>
 
-#include "all.h"
+#include "bin_tree.h"
 
 int i; /* used for loops */
 
@@ -25,7 +26,7 @@ int main (void)
 {
 	xcb_connection_t *connection = xcb_connect(NULL, NULL);
 	const xcb_setup_t *setup = xcb_get_setup(connection);
-	xcb_window_t root = xcb_setup_roots_iterator(setup).data->root;
+	xcb_window_t *screen = xcb_setup_roots_iterator(setup).data;
 	keysyms = xcb_key_symbols_alloc(connection);
 
 	int num_bindings = 1;
@@ -33,7 +34,7 @@ int main (void)
 
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
 
-	xcb_change_window_attributes(connection, root, XCB_CW_EVENT_MASK, value);
+	xcb_change_window_attributes(connection, screen->root, XCB_CW_EVENT_MASK, value);
 
 	bindings[0].key_sym = 't';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
@@ -43,16 +44,21 @@ int main (void)
 	for (i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
-		xcb_grab_key(connection, 1, root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+		xcb_grab_key(connection, 1, screen->root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
 	}
 
 	xcb_flush(connection);
+
+	node *tree = create_bin_tree(connection, screen->root);
+
+	window *focus = NULL;
 
 	while (1)
 	{
 		xcb_generic_event_t *event = xcb_wait_for_event(connection);
 		xcb_key_press_event_t *key_event;
 		xcb_map_notify_event_t *map_event;
+		node *temp;
 
 		switch (event->response_type)
 		{
@@ -64,7 +70,23 @@ int main (void)
 				break;
 			case XCB_MAP_NOTIFY:
 				map_event = (xcb_map_notify_event_t *) event;
-				system("exec gvim");
+				if (tree == NULL)
+				{
+					tree = add_window(tree, map_event->window);
+					focus = tree;
+					tree->x = 0;
+					tree->y = 0;
+					tree->width = screen->width_in_pixels;
+					tree->height = screen->height_in_pixels;
+					uint16 value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+					uint32_t value_list[4] = {tree->x, tree->y, tree->width, tree->height};
+					xcb_configure_window(connection, tree->id, value_mask, value_list);
+					xcb_flush(connection);
+				}
+				else
+				{
+					AS_CHILD(focus) = (container *) fork_window(focus, map_event->window);
+				}
 				break;
 		}
 	}
@@ -73,11 +95,6 @@ int main (void)
 void exec_dmenu (void)
 {
 	system("exec dmenu_run");
-}
-
-void halve_window (void)
-{
-
 }
 
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
