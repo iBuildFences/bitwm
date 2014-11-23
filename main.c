@@ -16,15 +16,18 @@ typedef struct binding
 	xcb_keysym_t key_sym;
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
-	void (*function) (void);
+	char *arguments;
+	int (*function) (char *arguments);
 } binding; 
 
-void exec_dmenu (void);
+void exec_dmenu (char *arguments);
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
+
+xcb_connection_t *connection;
 
 int main (void)
 {
-	xcb_connection_t *connection = xcb_connect(NULL, NULL);
+	connection = xcb_connect(NULL, NULL);
 	const xcb_setup_t *setup = xcb_get_setup(connection);
 	xcb_window_t *screen = xcb_setup_roots_iterator(setup).data;
 	keysyms = xcb_key_symbols_alloc(connection);
@@ -66,20 +69,22 @@ int main (void)
 				key_event = (xcb_key_press_event_t *) event;
 				for (i = 0; i < num_bindings; i++)
 					if (bindings[i].key_code == key_event->detail)
-						bindings[i].function();
+						bindings[i].function(bindings[i].arguments);
 				break;
 			case XCB_MAP_NOTIFY:
 				map_event = (xcb_map_notify_event_t *) event;
 				if (tree == NULL)
 				{
-					tree = add_window(tree, map_event->window);
+					tree = add_window(NULL, map_event->window);
 					focus = tree;
+					/*
 					tree->x = 0;
 					tree->y = 0;
 					tree->width = screen->width_in_pixels;
 					tree->height = screen->height_in_pixels;
+					*/
 					uint16 value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-					uint32_t value_list[4] = {tree->x, tree->y, tree->width, tree->height};
+					uint32_t value_list[4] = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
 					xcb_configure_window(connection, tree->id, value_mask, value_list);
 					xcb_flush(connection);
 				}
@@ -92,25 +97,23 @@ int main (void)
 	}
 }
 
-void exec_dmenu (void)
+void exec_dmenu (char *arguments)
 {
 	system("exec dmenu_run");
 }
 
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
 {
-	xcb_keycode_t *keyp;
-	xcb_keycode_t key;
+	xcb_keycode_t *key_pointer;
+	xcb_keycode_t key_code;
 
-	keyp = xcb_key_symbols_get_keycode(keysyms, keysym);
+	key_pointer = xcb_key_symbols_get_keycode(keysyms, keysym);
 
-	if (keyp == NULL)
-	{
+	if (key_pointer == NULL)
 		return 0;
-	}
 
-	key = *keyp;
-	free(keyp);
+	key_code = *key_pointer;
+	free(key_pointer);
 
 	return key;
 }
