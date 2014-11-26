@@ -17,7 +17,7 @@ typedef struct binding
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
 	char *arguments;
-	int (*function) (char *arguments);
+	void (*function) (char *arguments);
 } binding; 
 
 void exec_dmenu (char *arguments);
@@ -29,7 +29,7 @@ int main (void)
 {
 	connection = xcb_connect(NULL, NULL);
 	const xcb_setup_t *setup = xcb_get_setup(connection);
-	xcb_window_t *screen = xcb_setup_roots_iterator(setup).data;
+	xcb_screen_t *screen = xcb_setup_roots_iterator(setup).data;
 	keysyms = xcb_key_symbols_alloc(connection);
 
 	int num_bindings = 1;
@@ -52,9 +52,25 @@ int main (void)
 
 	xcb_flush(connection);
 
-	node *tree = create_bin_tree(connection, screen->root);
+	node *workspaces[8];
+	node *tree = create_bin_tree(NULL, 4);
+	set_node_pointers(tree, workspaces, 8);
 
-	window *focus = NULL;
+	print_tree(tree, 0);
+
+	printf("printed tree\n\n");
+
+	int ii;
+
+	for (ii = 0; ii < 8; ii++)
+	{
+		printf("workspace %d: %d\n", ii, workspaces[ii]);
+	}
+
+	printf("done");
+	printf("printed workspace list");
+
+	node *focus = workspaces[0];
 
 	while (1)
 	{
@@ -72,6 +88,7 @@ int main (void)
 						bindings[i].function(bindings[i].arguments);
 				break;
 			case XCB_MAP_NOTIFY:
+				/*
 				map_event = (xcb_map_notify_event_t *) event;
 				if (tree == NULL)
 				{
@@ -82,7 +99,6 @@ int main (void)
 					tree->y = 0;
 					tree->width = screen->width_in_pixels;
 					tree->height = screen->height_in_pixels;
-					*/
 					uint16 value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
 					uint32_t value_list[4] = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
 					xcb_configure_window(connection, tree->id, value_mask, value_list);
@@ -92,6 +108,7 @@ int main (void)
 				{
 					AS_CHILD(focus) = (container *) fork_window(focus, map_event->window);
 				}
+				*/
 				break;
 		}
 	}
@@ -115,6 +132,6 @@ xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
 	key_code = *key_pointer;
 	free(key_pointer);
 
-	return key;
+	return key_code;
 }
 
