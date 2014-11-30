@@ -21,7 +21,7 @@ typedef struct binding
 } binding; 
 
 void exec_dmenu (char *arguments);
-xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
+//xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
 
 xcb_connection_t *connection;
 
@@ -39,7 +39,7 @@ int main (void)
 
 	xcb_change_window_attributes(connection, screen->root, XCB_CW_EVENT_MASK, value);
 
-	bindings[0].key_sym = 't';
+	bindings[0].key_sym = ' ';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
 	bindings[0].function = exec_dmenu;
 
@@ -67,8 +67,8 @@ int main (void)
 		printf("workspace %d: %d\n", ii, workspaces[ii]);
 	}
 
-	printf("done");
-	printf("printed workspace list");
+	printf("done\n");
+	printf("printed workspace list\n");
 
 	node *focus = workspaces[0];
 
