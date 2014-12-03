@@ -13,41 +13,104 @@ enum node_types
 	H_SPLIT_CONTAINER,
 	V_SPLIT_CONTAINER,
 	
-	/*these should be bitwise or'd to the type code to dictate how blanks should be treated in a node operation*/
-	LEAVE_BLANK = 8, /*a node with this bit set indicates that when it is moved it should leave an empty node, instead of unforking*/
-	STAY_BLANK = 16 /*an empty node with this bit set should be manipulated as if it were a window*/
+	//these should be bitwise or'd to the type code of a to dictate how it should be treated in a tree operation
+	LEAVE_BLANK = 8, //a node with this bit set indicates that when it is moved it should leave an empty node, instead of unforking
+	STAY_BLANK = 16 //an empty node with this bit set should be manipulated as if it were a window
 };
 
 struct node
 {
 	char type;
-	node *parent;
+	container *parent;
 };
 
 struct window
 {
-	char type; /*should always be WINDOW*/
-	node *parent;
+	char type; //should always be WINDOW
+	container *parent;
 	xcb_window_t id;
 };
 
 struct container
 {
-	char type; /*should H_SPLIT_CONTAINER or V_SPLIT_CONTAINER*/
+	char type; //should be H_SPLIT_CONTAINER or V_SPLIT_CONTAINER
+	container *parent;
 	node *child[2];
-	node *parent;
 	double split_ratio;
+	int x, y;
+	int width, height;
 };
 
 
-container *fork_node (node *existing_node, node *new_node)
+container *create_container (char type)
 {
+	if (type & ~(H_SPLIT_CONTAINER | V_SPLIT_CONTAINER | LEAVE_BLANK | STAY_BLANK))
+		return NULL;
+	container *new_container = malloc(sizeof(container));
+	new_container->type = type;
+	new_container->split_ratio = .5;
+	return new_container;
+}
 
+window *create_window (char type, xcb_window_t id)
+{
+	if (type & ~(WINDOW | LEAVE_BLANK | STAY_BLANK))
+		return NULL;
+	window *new_window = malloc(sizeof(window));
+	new_window->type = type;
+	new_window->id = id;
+	return new_window;
+}
+
+node *fork_node (node *existing_node, node *new_node, char split_type)
+{
+	if (!existing_node)
+		return NULL;
+
+       	if (existing_node->type & BLANK_NODE && !(existing_node->type & STAY_BLANK))
+	{
+		new_node->parent = existing_node->parent;
+		free(existing_node);
+		return new_node;
+	}
+	else
+	{
+		container *new_container = create_container(split_type | (existing_node->type & ~LEAVE_BLANK));
+
+		new_container->parent = existing_node->parent;
+		existing_node->parent = new_container;
+		new_node->parent = new_container;
+
+		new_container->child[0] = existing_node;
+		new_container->child[1] = new_node;
+
+		return (node *) new_container;
+	}
 }
 
 node *unfork_node (node *old_node)
 {
+	if (!old_node->parent)
+		return NULL;
 
+	if (old_node->type & LEAVE_BLANK)
+	{
+		node *blank = malloc(sizeof(node));
+		AS_CHILD(old_node) = blank;
+		blank->parent = old_node->parent;
+		old_node->parent = NULL;
+		return (node *) blank->parent;
+	}
+
+	node *sibling = SIBLING(old_node);
+
+	sibling->parent = old_node->parent->parent;
+	sibling->type |= old_node->parent->type & LEAVE_BLANK;
+
+	free(old_node->parent);
+	old_node->parent = NULL;
+
+	return sibling;
 }
 
 node *swap_nodes (node *source_node, node *target_node)
@@ -55,12 +118,40 @@ node *swap_nodes (node *source_node, node *target_node)
 
 }
 
+void draw_tree (xcb_connection_t *connection, node *head)
+{
+
+}
+
+node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes)
+{
+	if (num_nodes > 1)
+	{
+		container *new_container = create_container(H_SPLIT_CONTAINER);
+		new_container->parent = parent;
+
+		new_container->child[0] = create_tree_with_pointers(new_container, pointers, (num_nodes + 1) / 2);
+		new_container->child[1] = create_tree_with_pointers(new_container, pointers + (num_nodes + 1) / 2, num_nodes / 2);
+
+		return (node *) new_container;
+	}
+	else
+	{
+		node *new_node = malloc(sizeof(node));
+		new_node->type = BLANK_NODE;
+		new_node->parent = parent;
+		*pointers = new_node;
+
+		return new_node;
+	}
+}
+
 node *create_bin_tree (container *parent, int depth)
 {
 	if (--depth > 0)
 	{
 		container *new_container = create_container(H_SPLIT_CONTAINER);
-		new_container->parent = (node *) parent;
+		new_container->parent = parent;
 		
 		new_container->child[0] = create_bin_tree(new_container, depth);
 		new_container->child[1] = create_bin_tree(new_container, depth);
@@ -71,7 +162,7 @@ node *create_bin_tree (container *parent, int depth)
 	{
 		node *new_node = malloc(sizeof(node));
 		new_node->type = BLANK_NODE;
-		new_node->parent = (node *) parent;
+		new_node->parent = parent;
 
 		return new_node;
 	}
@@ -110,15 +201,6 @@ void print_tree (node *current_node, int num_tabs)
 }
 
 
-container *create_container (char type)
-{
-	if (!(type == H_SPLIT_CONTAINER || type == V_SPLIT_CONTAINER))
-		return NULL;
-	container *con = malloc(sizeof(container));
-	con->type = type;
-	con->split_ratio = .5;
-	return con;
-}
 
 /*
 node *create_bin_tree (xcb_connection_t *connection, xcb_window_t root, node *workspaces, int num_workspaces)

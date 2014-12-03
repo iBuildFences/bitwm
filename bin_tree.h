@@ -5,6 +5,8 @@
 #include <xcb/xproto.h>
 
 #define AS_CHILD(window) window->parent->child[window->parent->child[0] == window ? 0 : 1]
+#define SIBLING(window) window->parent->child[window->parent->child[0] == window ? 1 : 0]
+#define CHILD_NUMBER(window) window->parent->child[0] == window ? 0 : 1
 
 typedef uint32_t xcb_window_t;
 
@@ -12,18 +14,20 @@ typedef struct node node;
 typedef struct window window;
 typedef struct container container;
 
-container *fork_node (node *existing_node, node *new_node);
+container *create_container (char type);
+window *create_window (char type, xcb_window_t id);
+
+node *fork_node (node *existing_node, node *new_node, char split_type);
 node *unfork_node (node *old_node);
 node *swap_nodes (node *source_node, node *target_node);
 
 node *create_bin_tree (container *parent, int depth);
 void set_node_pointers (node *current_node, node **pointers, int num_pointers);
+node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes);
 
 void print_tree (node *current_node, int num_tabs);
 
 /*probably both useless*/
-container *create_container (char type);
-window *create_window (xcb_window_t id);
 
 /*
    creates a window and assigns it the specified id and parent.

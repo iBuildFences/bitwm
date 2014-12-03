@@ -7,8 +7,6 @@
 
 #include "bin_tree.h"
 
-int i; /* used for loops */
-
 xcb_key_symbols_t *keysyms;
 
 typedef struct binding
@@ -21,7 +19,7 @@ typedef struct binding
 } binding; 
 
 void exec_dmenu (char *arguments);
-//xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
+xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
 
 xcb_connection_t *connection;
 
@@ -44,7 +42,7 @@ int main (void)
 	bindings[0].function = exec_dmenu;
 
 
-	for (i = 0; i < num_bindings; i++)
+	for (int i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
 		xcb_grab_key(connection, 1, screen->root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
@@ -52,19 +50,21 @@ int main (void)
 
 	xcb_flush(connection);
 
-	node *workspaces[8];
+	int num_workspaces = 9;
+	node *workspaces[num_workspaces];
+	/*
 	node *tree = create_bin_tree(NULL, 4);
 	set_node_pointers(tree, workspaces, 8);
+	*/
+	node *tree = create_tree_with_pointers(NULL, workspaces, num_workspaces);
 
 	print_tree(tree, 0);
 
 	printf("printed tree\n\n");
 
-	int ii;
-
-	for (ii = 0; ii < 8; ii++)
+	for (int i = 0; i < num_workspaces; i++)
 	{
-		printf("workspace %d: %d\n", ii, workspaces[ii]);
+		printf("workspace %d: %d\n", i, workspaces[i]);
 	}
 
 	printf("done\n");
@@ -83,7 +83,7 @@ int main (void)
 		{
 			case XCB_KEY_PRESS:
 				key_event = (xcb_key_press_event_t *) event;
-				for (i = 0; i < num_bindings; i++)
+				for (int i = 0; i < num_bindings; i++)
 					if (bindings[i].key_code == key_event->detail)
 						bindings[i].function(bindings[i].arguments);
 				break;
