@@ -18,8 +18,14 @@ typedef struct binding
 	void (*function) (char *arguments);
 } binding; 
 
+typedef struct workspace
+{
+	node *top_node;
+	rectangle *dimensions;
+} workspace;
+
 void exec_dmenu (char *arguments);
-xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym);
+xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
 xcb_connection_t *connection;
 
@@ -88,27 +94,6 @@ int main (void)
 						bindings[i].function(bindings[i].arguments);
 				break;
 			case XCB_MAP_NOTIFY:
-				/*
-				map_event = (xcb_map_notify_event_t *) event;
-				if (tree == NULL)
-				{
-					tree = add_window(NULL, map_event->window);
-					focus = tree;
-					/*
-					tree->x = 0;
-					tree->y = 0;
-					tree->width = screen->width_in_pixels;
-					tree->height = screen->height_in_pixels;
-					uint16 value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-					uint32_t value_list[4] = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
-					xcb_configure_window(connection, tree->id, value_mask, value_list);
-					xcb_flush(connection);
-				}
-				else
-				{
-					AS_CHILD(focus) = (container *) fork_window(focus, map_event->window);
-				}
-				*/
 				break;
 		}
 	}

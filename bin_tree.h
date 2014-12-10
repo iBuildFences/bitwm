@@ -13,6 +13,7 @@ typedef uint32_t xcb_window_t;
 typedef struct node node;
 typedef struct window window;
 typedef struct container container;
+typedef struct rectangle rectangle;
 
 container *create_container (char type);
 window *create_window (char type, xcb_window_t id);
