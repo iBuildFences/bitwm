@@ -6,49 +6,6 @@
 
 #include "bin_tree.h"
 
-enum node_types
-{
-	//primary types; any node should have exactly one of these in its type code
-	BLANK_NODE = 1,
-	WINDOW = 2,
-	H_SPLIT_CONTAINER = 4,
-	V_SPLIT_CONTAINER = 8,
-	
-	//secondary types; these should be bitwise or'd to the type code of a node
-
-	WORKSPACE = 16, // used to indicate that this node is part of the array of nodes that should be displayed alone
-
-        //blank types; use to dictate how the node should be treated in a tree operation
-	LEAVE_BLANK = 32, //a node with this bit set indicates that when it is moved it should leave an empty node, instead of unforking
-	STAY_BLANK = 64 //an empty node with this bit set should be manipulated as if it were a window
-};
-
-struct node
-{
-	char type;
-	container *parent;
-};
-
-struct window
-{
-	char type; //should always include WINDOW
-	container *parent;
-	xcb_window_t id;
-};
-
-struct container
-{
-	char type; //should include either H_SPLIT_CONTAINER or V_SPLIT_CONTAINER
-	container *parent;
-	node *child[2];
-	double split_ratio;
-};
-
-struct rectangle
-{
-	int x, y, width, height;
-};
-
 
 container *create_container (char type)
 {
@@ -70,6 +27,7 @@ window *create_window (char type, xcb_window_t id)
 	return new_window;
 }
 
+//need to set parent's child pointer correctly
 node *fork_node (node *existing_node, node *new_node, char split_type)
 {
 	if (!existing_node)
@@ -126,6 +84,23 @@ node *swap_nodes (node *source_node, node *target_node)
 
 }
 
+window *find_window (node *current_node, xcb_window_t id)
+{
+	if (current_node->type & WINDOW && ((window *) current_node)->id == id)
+		return (window *) current_node;
+	else if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
+	{
+		window *result = find_window(((container *) current_node)->child[0], id);
+
+		if (result)
+			return result;
+		else
+			return find_window(((container *) current_node)->child[1], id);
+	}
+	else
+		return NULL;
+}
+
 rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions)
 {
 	
@@ -134,17 +109,17 @@ rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions
 		if (!current_node->parent)
 			return NULL;
 
-		rectangle *dimensions = get_tree_dimensions(current_node->parent, screen_dimensions);
+		rectangle *dimensions = get_node_dimensions((node *) current_node->parent, screen_dimensions);
 
-		if (current_node->parent->type & V_SPLIT_CONTAINET)
+		if (current_node->parent->type & V_SPLIT_CONTAINER)
 		{
-			dimensions->width *= (CHILD_NUMBER(node) ? 1 - : ) current_node->parent->split_ratio;
+			dimensions->width *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
 			if (CHILD_NUMBER(current_node))
 				dimensions->x += dimensions->width;
 		}
 		else
 		{
-			dimensions->height *= (CHILD_NUMBER(current_node) ? 1 - : ) current_node->parent->split_ratio;
+			dimensions->height *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
 			if (CHILD_NUMBER(current_node))
 				dimensions->y += dimensions->height;
 		}
@@ -155,7 +130,7 @@ rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions
 		return screen_dimensions;
 }
 
-void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)
+void configure_tree (xcb_connection_t *connection, node *current_node, rectangle *dimensions)
 {
 	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
@@ -182,10 +157,10 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 	}
 	else if (current_node->type & WINDOW)
 	{
-		window current_window = (window *) current_node;
+		window *current_window = (window *) current_node;
 
 		uint16_t value_mask = XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_HEIGHT;
-		uint32_t value_list[4] = {dimensions->x, dimensions->y, dimensiond->width, dimensions->height};
+		uint32_t value_list[4] = {dimensions->x, dimensions->y, dimensions->width, dimensions->height};
 
 		xcb_configure_window(connection, current_window->id, value_mask, value_list);
 	}
@@ -250,22 +225,18 @@ void set_node_pointers (node *current_node, node **pointers, int num_pointers)
 
 void print_tree (node *current_node, int num_tabs)
 {
-	if (current_node->type == H_SPLIT_CONTAINER || current_node->type == V_SPLIT_CONTAINER)
+	for (int i = 0; i < num_tabs; i++)
+		putchar('\t');	
+	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
-		int i;
-		for (i = 0; i < num_tabs; i++)
-		       putchar('\t');	
 		printf("con: %d\n", current_node);
 		print_tree(((container *) current_node)->child[0], num_tabs + 1);
 		print_tree(((container *) current_node)->child[1], num_tabs + 1);
 	}
-	else
-	{
-		int i;
-		for (i = 0; i < num_tabs; i++)
-		       putchar('\t');	
+	else if (current_node->type & WINDOW)
 		printf("win: %d\n", current_node);
-	}
+	else
+		printf("blank: %d\n", current_node);
 }
 
 
