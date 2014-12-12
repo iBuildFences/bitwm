@@ -31,6 +31,8 @@ xcb_connection_t *connection;
 
 int main (void)
 {
+	setbuf(stdout, NULL);
+
 	connection = xcb_connect(NULL, NULL);
 	const xcb_setup_t *setup = xcb_get_setup(connection);
 	xcb_screen_t *screen = xcb_setup_roots_iterator(setup).data;
@@ -49,7 +51,7 @@ int main (void)
 
 	xcb_change_window_attributes(connection, screen->root, XCB_CW_EVENT_MASK, value);
 
-	bindings[0].key_sym = 't';
+	bindings[0].key_sym = ' ';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
 	bindings[0].function = exec_dmenu;
 
@@ -62,93 +64,74 @@ int main (void)
 
 	xcb_flush(connection);
 
-	int num_workspaces = 9;
+	int num_workspaces = 8;
 	node *workspaces[num_workspaces];
 
 	node *tree = create_tree_with_pointers(NULL, workspaces, num_workspaces);
 
 	for (int i = 0; i < num_workspaces; i++)
-		workspaces[i]->type |= WORKSPACE;
-
-	print_tree(tree, 0);
-
-	printf("printed tree\n\n");
-
-	for (int i = 0; i < num_workspaces; i++)
-	{
-		printf("workspace %d: %d\n", i, workspaces[i]);
-	}
-
-	printf("done\n");
-	printf("printed workspace list\n");
+		workspaces[i]->type |= WORKSPACE | LEAVE_BLANK;
 
 	node *focus = workspaces[0];
 
 	while (1)
 	{
 		xcb_generic_event_t *event = xcb_wait_for_event(connection);
-		xcb_key_press_event_t *key_event;
-		xcb_map_notify_event_t *map_event;
-		node *temp;
 
 		switch (event->response_type)
 		{
-			case XCB_KEY_PRESS:
-				printf("KeyPress received\n");
-				key_event = (xcb_key_press_event_t *) event;
+			case XCB_KEY_PRESS:;
+				xcb_key_press_event_t *key_event = (xcb_key_press_event_t *) event;
 				for (int i = 0; i < num_bindings; i++)
 					if (bindings[i].key_code == key_event->detail)
 						bindings[i].function(bindings[i].arguments);
-				printf("KeyPress processed\n");
 				break;
-			case XCB_MAP_NOTIFY:
-				printf("MapNotify received\n");
-				map_event = (xcb_map_notify_event_t *) event;
-				if (!find_window(tree, map_event->window))
+			case XCB_MAP_NOTIFY:;
+				xcb_map_notify_event_t *map_event = (xcb_map_notify_event_t *) event;
+
+				xcb_get_window_attributes_cookie_t attributes_cookie = xcb_get_window_attributes_unchecked(connection, map_event->window);
+				xcb_get_window_attributes_reply_t *attributes_reply = xcb_get_window_attributes_reply(connection, attributes_cookie, NULL);
+
+				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
 				{
-					printf("focus window: %d\n", focus);
 					if (focus->type & WORKSPACE)
 					{
-						printf("focus is workspace\n");
-						int workspace;
-						for (workspace = 0; workspace < num_workspaces; workspace++)
-							if (workspaces[workspace] == focus)
-								break;
-						printf("creating window\n");
+						int i;
+						for (i = 0; i < num_workspaces && workspaces[i] != focus; i++)
+							;
 						window *new_window = create_window(WINDOW, map_event->window);
-						printf("forking node\n");
-						focus = fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
-						printf("setting workspace pointer\n");
-						workspaces[workspace] = focus;
-						printf("setting focus\n");
-						if (focus->type & (V_SPLIT_CONTAINER | H_SPLIT_CONTAINER))
-							focus = ((container *) focus)->child[1];
+						workspaces[i] = fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
+						workspaces[i]->type |= WORKSPACE;
+						focus = (node *) new_window;
 					}
 					else
 					{
-						printf("focus is not workspace\n");
 						window *new_window = create_window(WINDOW, map_event->window);
 						fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
 						focus = (node *) new_window;
 					}
 
-					print_tree(tree, 0);
-					for (int i = 0; i < num_workspaces; i++)
-					{
-						printf("workspace %d: %d\n", i, workspaces[i]);
-					}
-					printf("focus window: %d\n", focus);
+					rectangle dimensions = *screen_dimensions;
+					rectangle *container_dimensions = get_node_dimensions(focus, &dimensions);
+					if (container_dimensions)
+						configure_tree(connection, (node *) focus->parent, container_dimensions);
 
-					printf("getting dimensions\n");
-					rectangle *container_dimensions = get_node_dimensions(focus, screen_dimensions);
-					printf("configuring tree\n");
-					configure_tree(connection, (node *) focus->parent, container_dimensions);
-					free(container_dimensions);
-
-					printf("flushing connection\n");
 					xcb_flush(connection);
 				}
-				printf("MapNotify processed\n");
+
+				free(attributes_reply);
+
+				break;
+			case XCB_UNMAP_NOTIFY:;
+				/*
+				xcb_map_notify_event_t *unmap_event = (xcb_unmap_notify_event_t *) event;
+				window *old_window;
+
+				if (old_window = find_window(tree, unmap_event->window))
+				{
+					unfork_node();
+				}
+				*/
 				break;
 		}
 	}

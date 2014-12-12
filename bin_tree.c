@@ -30,20 +30,23 @@ window *create_window (char type, xcb_window_t id)
 //need to set parent's child pointer correctly
 node *fork_node (node *existing_node, node *new_node, char split_type)
 {
-	if (!existing_node)
+	if (!existing_node || !new_node)
 		return NULL;
 
        	if (existing_node->type & BLANK_NODE && !(existing_node->type & STAY_BLANK))
 	{
 		new_node->parent = existing_node->parent;
+		if (new_node->parent)
+			AS_CHILD(existing_node) = new_node;
 		free(existing_node);
 		return new_node;
 	}
 	else
 	{
-		container *new_container = create_container(split_type | (existing_node->type & ~LEAVE_BLANK));
+		container *new_container = create_container(split_type | (existing_node->type & LEAVE_BLANK));
 
 		new_container->parent = existing_node->parent;
+		AS_CHILD(existing_node) = (node *) new_container;
 		existing_node->parent = new_container;
 		new_node->parent = new_container;
 
@@ -110,6 +113,9 @@ rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions
 			return NULL;
 
 		rectangle *dimensions = get_node_dimensions((node *) current_node->parent, screen_dimensions);
+
+		if (!dimensions)
+			return NULL;
 
 		if (current_node->parent->type & V_SPLIT_CONTAINER)
 		{
@@ -229,14 +235,14 @@ void print_tree (node *current_node, int num_tabs)
 		putchar('\t');	
 	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
-		printf("con: %d\n", current_node);
+		printf("con: %x\n", current_node);
 		print_tree(((container *) current_node)->child[0], num_tabs + 1);
 		print_tree(((container *) current_node)->child[1], num_tabs + 1);
 	}
 	else if (current_node->type & WINDOW)
-		printf("win: %d\n", current_node);
+		printf("win: %x\n", current_node);
 	else
-		printf("blank: %d\n", current_node);
+		printf("blank: %x\n", current_node);
 }
 
 
