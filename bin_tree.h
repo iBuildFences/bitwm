@@ -72,8 +72,8 @@ node *create_bin_tree (container *parent, int depth);
 void set_node_pointers (node *current_node, node **pointers, int num_pointers);
 node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes);
 
-rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions);
-void configure_tree (xcb_connection_t *connection, node *current_node, rectangle *dimensions);
+rectangle get_node_dimensions (node *current_node, rectangle *screen_dimensions);
+void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions);
 
 void print_tree (node *current_node, int num_tabs);
 

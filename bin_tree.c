@@ -87,6 +87,26 @@ node *swap_nodes (node *source_node, node *target_node)
 
 }
 
+node *add_node(node *existing_node, node *new_node)
+{
+	if (focus->type & WORKSPACE)
+	{
+		int i;
+		for (i = 0; i < num_workspaces && workspaces[i] != focus; i++)
+			;
+		window *new_window = create_window(WINDOW, map_event->window);
+		workspaces[i] = fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
+		workspaces[i]->type |= WORKSPACE;
+		focus = (node *) new_window;
+	}
+	else
+	{
+		window *new_window = create_window(WINDOW, map_event->window);
+		fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
+		focus = (node *) new_window;
+	}
+}
+
 window *find_window (node *current_node, xcb_window_t id)
 {
 	if (current_node->type & WINDOW && ((window *) current_node)->id == id)
@@ -104,39 +124,46 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
-rectangle *get_node_dimensions (node *current_node, rectangle *screen_dimensions)
+rectangle get_node_dimensions (node *current_node, rectangle *screen_dimensions)
 {
 	
-	if (!(current_node->type & WORKSPACE))
+	if (!(current_node->type & WORKSPACE) && current_node->parent)
 	{
-		if (!current_node->parent)
-			return NULL;
-
-		rectangle *dimensions = get_node_dimensions((node *) current_node->parent, screen_dimensions);
-
-		if (!dimensions)
-			return NULL;
+		rectangle dimensions = get_node_dimensions((node *) current_node->parent, screen_dimensions);
 
 		if (current_node->parent->type & V_SPLIT_CONTAINER)
 		{
-			dimensions->width *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
 			if (CHILD_NUMBER(current_node))
-				dimensions->x += dimensions->width;
+			{
+				dimensions.width *= 1 - current_node->parent->split_ratio;
+				dimensions.x += dimensions.width;
+			}
+			else
+				dimensions.width *= current_node->parent->split_ratio;
 		}
 		else
 		{
-			dimensions->height *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
 			if (CHILD_NUMBER(current_node))
-				dimensions->y += dimensions->height;
+			{
+				dimensions.height *= 1 - current_node->parent->split_ratio;
+				dimensions.y += dimensions.width;
+			}
+			else
+				dimensions.height *= current_node->parent->split_ratio;
+			/*
+			dimensions.height *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
+			if (CHILD_NUMBER(current_node))
+				dimensions.y += dimensions.height;
+				*/
 		}
 		
 		return dimensions;
 	}
 	else
-		return screen_dimensions;
+		return *screen_dimensions;
 }
 
-void configure_tree (xcb_connection_t *connection, node *current_node, rectangle *dimensions)
+void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)
 {
 	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
@@ -144,20 +171,20 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 
 		if (current_container->type & V_SPLIT_CONTAINER)
 		{
-			dimensions->width *= current_container->split_ratio;
+			dimensions.width *= current_container->split_ratio;
 			configure_tree(connection, current_container->child[0], dimensions);
 
-			dimensions->x += dimensions->width;
-			dimensions->width *= (1 - current_container->split_ratio) / current_container->split_ratio;
+			dimensions.x += dimensions.width;
+			dimensions.width *= (1 - current_container->split_ratio) / current_container->split_ratio;
 			configure_tree(connection, current_container->child[1], dimensions);
 		}
 		else
 		{
-			dimensions->height *= current_container->split_ratio;
+			dimensions.height *= current_container->split_ratio;
 			configure_tree(connection, current_container->child[0], dimensions);
 
-			dimensions->y += dimensions->height;
-			dimensions->height *= (1 - current_container->split_ratio) / current_container->split_ratio;
+			dimensions.y += dimensions.height;
+			dimensions.height *= (1 - current_container->split_ratio) / current_container->split_ratio;
 			configure_tree(connection, current_container->child[1], dimensions);
 		}
 	}
@@ -166,7 +193,7 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 		window *current_window = (window *) current_node;
 
 		uint16_t value_mask = XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_HEIGHT;
-		uint32_t value_list[4] = {dimensions->x, dimensions->y, dimensions->width, dimensions->height};
+		uint32_t value_list[4] = {dimensions.x, dimensions.y, dimensions.width, dimensions.height};
 
 		xcb_configure_window(connection, current_window->id, value_mask, value_list);
 	}

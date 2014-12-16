@@ -111,10 +111,8 @@ int main (void)
 						focus = (node *) new_window;
 					}
 
-					rectangle dimensions = *screen_dimensions;
-					rectangle *container_dimensions = get_node_dimensions(focus, &dimensions);
-					if (container_dimensions)
-						configure_tree(connection, (node *) focus->parent, container_dimensions);
+					rectangle container_dimensions = get_node_dimensions(focus, screen_dimensions);
+					configure_tree(connection, (node *) focus->parent, container_dimensions);
 
 					xcb_flush(connection);
 				}
