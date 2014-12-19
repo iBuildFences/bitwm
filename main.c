@@ -11,8 +11,7 @@ xcb_key_symbols_t *keysyms;
 
 typedef struct binding
 {
-	xcb_keysym_t key_sym;
-	xcb_keycode_t key_code;
+	xcb_keysym_t key_sym; xcb_keycode_t key_code;
 	uint16_t modifiers;
 	char *arguments;
 	void (*function) (char *arguments);
@@ -69,9 +68,12 @@ int main (void)
 
 	node *tree = create_tree_with_pointers(NULL, workspaces, num_workspaces);
 
+	/*
 	for (int i = 0; i < num_workspaces; i++)
 		workspaces[i]->type |= WORKSPACE | LEAVE_BLANK;
+		*/
 
+	node *current_node = workspaces[0];
 	node *focus = workspaces[0];
 
 	while (1)
@@ -94,6 +96,7 @@ int main (void)
 
 				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
 				{
+					/*
 					if (focus->type & WORKSPACE)
 					{
 						int i;
@@ -112,7 +115,16 @@ int main (void)
 					}
 
 					rectangle container_dimensions = get_node_dimensions(focus, screen_dimensions);
-					configure_tree(connection, (node *) focus->parent, container_dimensions);
+					*/
+					node *new_window = (node *) create_window(WINDOW, map_event->window);
+
+					if (focus == current_node)
+						current_node = (node *) fork_node(focus, new_window, H_SPLIT_CONTAINER);
+					else
+						fork_node(focus, new_window, H_SPLIT_CONTAINER);
+
+					focus = new_window;
+					configure_tree(connection, current_node, *screen_dimensions);
 
 					xcb_flush(connection);
 				}

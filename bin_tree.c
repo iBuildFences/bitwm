@@ -6,20 +6,9 @@
 
 #include "bin_tree.h"
 
-
-container *create_container (char type)
-{
-	if (type & ~(H_SPLIT_CONTAINER | V_SPLIT_CONTAINER | LEAVE_BLANK | STAY_BLANK))
-		return NULL;
-	container *new_container = malloc(sizeof(container));
-	new_container->type = type;
-	new_container->split_ratio = .5;
-	return new_container;
-}
-
 window *create_window (char type, xcb_window_t id)
 {
-	if (type & ~(WINDOW | LEAVE_BLANK | STAY_BLANK))
+	if (type & ~(WINDOW))// | LEAVE_BLANK | STAY_BLANK))
 		return NULL;
 	window *new_window = malloc(sizeof(window));
 	new_window->type = type;
@@ -27,9 +16,19 @@ window *create_window (char type, xcb_window_t id)
 	return new_window;
 }
 
-//need to set parent's child pointer correctly
-node *fork_node (node *existing_node, node *new_node, char split_type)
+container *create_container (char type)
 {
+	if (type & ~(H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))// | LEAVE_BLANK | STAY_BLANK))
+		return NULL;
+	container *new_container = malloc(sizeof(container));
+	new_container->type = type;
+	new_container->split_ratio = .5;
+	return new_container;
+}
+
+container *fork_node (node *existing_node, node *new_node, char split_type)
+{
+	/*
 	if (!existing_node || !new_node)
 		return NULL;
 
@@ -43,22 +42,24 @@ node *fork_node (node *existing_node, node *new_node, char split_type)
 	}
 	else
 	{
-		container *new_container = create_container(split_type | (existing_node->type & LEAVE_BLANK));
+	*/
+	container *new_container = create_container(split_type);// | (existing_node->type & LEAVE_BLANK));
 
-		new_container->parent = existing_node->parent;
-		AS_CHILD(existing_node) = (node *) new_container;
-		existing_node->parent = new_container;
-		new_node->parent = new_container;
+	new_container->parent = existing_node->parent;
+	AS_CHILD(existing_node) = (node *) new_container;
+	existing_node->parent = new_container;
+	new_node->parent = new_container;
 
-		new_container->child[0] = existing_node;
-		new_container->child[1] = new_node;
+	new_container->child[0] = existing_node;
+	new_container->child[1] = new_node;
 
-		return (node *) new_container;
-	}
+	return new_container;
+	//}
 }
 
-node *unfork_node (node *old_node)
+void unfork_node (node *old_node)
 {
+	/*
 	if (!old_node->parent)
 		return NULL;
 
@@ -70,27 +71,47 @@ node *unfork_node (node *old_node)
 		old_node->parent = NULL;
 		return (node *) blank->parent;
 	}
-
+	else
+	{
+	*/
 	node *sibling = SIBLING(old_node);
 
 	sibling->parent = old_node->parent->parent;
-	sibling->type |= old_node->parent->type & LEAVE_BLANK;
+	//sibling->type |= old_node->parent->type & LEAVE_BLANK;
+
+	AS_CHILD(old_node->parent) = sibling;
 
 	free(old_node->parent);
 	old_node->parent = NULL;
 
-	return sibling;
+	//return sibling;
+	//}
 }
 
-node *swap_nodes (node *source_node, node *target_node)
+void swap_nodes (node *first_node, node *second_node)
 {
-
+	container *parent = first_node->parent;
+	int child_number = CHILD_NUMBER(first_node);
+	first_node->parent = second_node->parent;
+	AS_CHILD(second_node) = first_node;
+	second_node->parent = parent;
+	parent->child[child_number] = second_node;
 }
 
+/*
 node *add_node(node *existing_node, node *new_node)
 {
-	if (focus->type & WORKSPACE)
+	if (existing_node->type & WORKSPACE)
 	{
+		swap_nodes(existing_node, new_node);
+		new_node->type |= WORKSPACE;
+		free(existing_node);
+		return new_node;
+	}
+	else
+		return (node *) fork_node(existing_node, new_node);
+
+	/*
 		int i;
 		for (i = 0; i < num_workspaces && workspaces[i] != focus; i++)
 			;
@@ -105,11 +126,44 @@ node *add_node(node *existing_node, node *new_node)
 		fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
 		focus = (node *) new_window;
 	}
+	*/
+/*
 }
+
+void remove_node(node *old_node)
+{
+	if (old_node->type & WORKSPACE)
+	{
+		node *new_node = malloc(sizeof(node));
+		new_node->parent = old_node->parent;
+		AS_CHILD(old_node) = new_node;
+		old_node->parent = NULL;
+	}
+	else
+		unfork_node(old_node);
+}
+
+int find_workspace(node *focus, node *workspaces, int num_workspaces)
+{
+	if (focus->type & WORKSPACE)
+	{
+		for (int i = 0; i < num_workspaces; i++)
+			if (workspaces[i] == current_node)
+				return i;
+	}
+	else if (focus->parent)
+		return find_workspace(focus->parent, workspaces, num_workspaces);
+	else
+		return -1;
+}
+*/
+
 
 window *find_window (node *current_node, xcb_window_t id)
 {
-	if (current_node->type & WINDOW && ((window *) current_node)->id == id)
+	if (!current_node)
+		return NULL;
+	else if (current_node->type & WINDOW && ((window *) current_node)->id == id)
 		return (window *) current_node;
 	else if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
@@ -124,12 +178,13 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
-rectangle get_node_dimensions (node *current_node, rectangle *screen_dimensions)
+/*
+rectangle get_node_dimensions (rectangle *screen_dimensions, node *current_node, node *top_node)
 {
 	
-	if (!(current_node->type & WORKSPACE) && current_node->parent)
+	if (current_node != top_node && current_node->parent)
 	{
-		rectangle dimensions = get_node_dimensions((node *) current_node->parent, screen_dimensions);
+		rectangle dimensions = get_node_dimensions(screen_dimensions, (node *) current_node->parent);
 
 		if (current_node->parent->type & V_SPLIT_CONTAINER)
 		{
@@ -150,11 +205,6 @@ rectangle get_node_dimensions (node *current_node, rectangle *screen_dimensions)
 			}
 			else
 				dimensions.height *= current_node->parent->split_ratio;
-			/*
-			dimensions.height *= (CHILD_NUMBER(current_node) ? 1 - current_node->parent->split_ratio : current_node->parent->split_ratio);
-			if (CHILD_NUMBER(current_node))
-				dimensions.y += dimensions.height;
-				*/
 		}
 		
 		return dimensions;
@@ -162,10 +212,13 @@ rectangle get_node_dimensions (node *current_node, rectangle *screen_dimensions)
 	else
 		return *screen_dimensions;
 }
+*/
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)
 {
-	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
+	if (!current_node)
+		return;
+	else if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
 		container *current_container = (container *) current_node;
 
@@ -192,7 +245,7 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 	{
 		window *current_window = (window *) current_node;
 
-		uint16_t value_mask = XCB_CONFIG_WINDOW_X, XCB_CONFIG_WINDOW_Y, XCB_CONFIG_WINDOW_WIDTH, XCB_CONFIG_WINDOW_HEIGHT;
+		uint16_t value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
 		uint32_t value_list[4] = {dimensions.x, dimensions.y, dimensions.width, dimensions.height};
 
 		xcb_configure_window(connection, current_window->id, value_mask, value_list);
@@ -213,15 +266,18 @@ node *create_tree_with_pointers (container *parent, node **pointers, int num_nod
 	}
 	else
 	{
+		/*
 		node *new_node = malloc(sizeof(node));
 		new_node->type = BLANK_NODE;
 		new_node->parent = parent;
 		*pointers = new_node;
+		*/
 
-		return new_node;
+		return NULL;
 	}
 }
 
+/*
 node *create_bin_tree (container *parent, int depth)
 {
 	if (--depth > 0)
@@ -255,6 +311,7 @@ void set_node_pointers (node *current_node, node **pointers, int num_pointers)
 	else
 		*pointers = current_node;
 }
+*/
 
 void print_tree (node *current_node, int num_tabs)
 {
@@ -271,98 +328,3 @@ void print_tree (node *current_node, int num_tabs)
 	else
 		printf("blank: %x\n", current_node);
 }
-
-
-
-/*
-node *create_bin_tree (xcb_connection_t *connection, xcb_window_t root, node *workspaces, int num_workspaces)
-{
-	int i, i2;
-	int num_cons = 1;
-
-	int workspaces_assigned = 0;
-
-	int depth = log(num_workspaces) / log(2) + 1;
-
-	//tree = create_container (H_SPLIT_CONTAINER);
-
-	for (i = 1; i < depth; i++)
-	{
-		for (i2 = 0; i2 < num_cons; i2++)
-
-
-
-	/*create tree with eight null nodes, perhaps take an array arg an add pointers to those*/
-
-	/*
-	xcb_query_tree_cookie_t cookie = xcb_query_tree (connection, root);
-
-	window *win = create_window();
-	xcb_generic_error_t **e;
-	xcb_query_tree_reply_t *reply;
-	reply = xcb_query_tree_reply(connection, cookie, e)
-	
-}
-*/
-
-
-
-/*
-container *create_container (char type)
-{
-	if (!(type == H_SPLIT_CONTAINER || type == V_SPLIT_CONTAINER))
-		return NULL;
-	container *con = malloc(sizeof(container));
-	con->type = type;
-	con->split_ratio = .5;
-	return con;
-}
-
-window *create_window (xcb_window_t id)
-{
-	window *new_window = malloc(sizeof(window));
-	new_window->type = WINDOW;
-	new_window->id = id;
-	return new_window;
-}
-
-container *fork_window (window *existing_window, xcb_window_t new_window_id)
-{
-	container *new_container = create_container(H_SPLIT_CONTAINER);
-	window *new_window = create_window(new_window_id);
-	new_container->parent = existing_window->parent;
-	new_container->child[0] = (node *) existing_window;
-	new_container->child[1] = (node *) new_window;
-	return new_container;
-}
-
-/*
-window *add_window (window *parent, xcb_window_t window_id)
-{
-	window *new_window = create_window(id);
-	new_window->parent = parent;
-
-	return new_window;
-}
-
-
-node *create_bin_tree (xcb_connection_t *connection, xcb_window_t root, node *workspaces, int num_workspaces)
-{
-	int workspaces_assigned = 0;
-
-	int depth = /*log2(work): round up
-
-	tree = create_container (H_SPLIT_CONTAINER);
-
-	/*create tree with eight null nodes, perhaps take an array arg an add pointers to those*/
-
-	/*
-	xcb_query_tree_cookie_t cookie = xcb_query_tree (connection, root);
-
-	window *win = create_window();
-	xcb_generic_error_t **e;
-	xcb_query_tree_reply_t *reply;
-	reply = xcb_query_tree_reply(connection, cookie, e)
-	
-}
-*/
