@@ -26,6 +26,19 @@ typedef struct workspace
 void exec_dmenu (char *arguments);
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
+void split_focus_window(xcb_window_t id);
+void remove_focus_window();
+
+node *tree = NULL; //the top node of the tree. parent should always be NULL
+node *current_node = NULL; //the current top node displayed on the screen
+node *focus = NULL; //current focus node
+
+node **tags;
+int num_tags;
+
+void (*map_window)(xcb_window_t id);
+void (*unmap_window)(window *old_window);
+
 xcb_connection_t *connection;
 
 int main (void)
@@ -63,18 +76,7 @@ int main (void)
 
 	xcb_flush(connection);
 
-	int num_workspaces = 8;
-	node *workspaces[num_workspaces];
-
-	node *tree = create_tree_with_pointers(NULL, workspaces, num_workspaces);
-
-	/*
-	for (int i = 0; i < num_workspaces; i++)
-		workspaces[i]->type |= WORKSPACE | LEAVE_BLANK;
-		*/
-
-	node *current_node = workspaces[0];
-	node *focus = workspaces[0];
+	map_window = split_focus_window;
 
 	while (1)
 	{
@@ -95,56 +97,52 @@ int main (void)
 				xcb_get_window_attributes_reply_t *attributes_reply = xcb_get_window_attributes_reply(connection, attributes_cookie, NULL);
 
 				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
-				{
-					/*
-					if (focus->type & WORKSPACE)
-					{
-						int i;
-						for (i = 0; i < num_workspaces && workspaces[i] != focus; i++)
-							;
-						window *new_window = create_window(WINDOW, map_event->window);
-						workspaces[i] = fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
-						workspaces[i]->type |= WORKSPACE;
-						focus = (node *) new_window;
-					}
-					else
-					{
-						window *new_window = create_window(WINDOW, map_event->window);
-						fork_node(focus, (node *) new_window, V_SPLIT_CONTAINER);
-						focus = (node *) new_window;
-					}
+					map_window(map_event->window);
 
-					rectangle container_dimensions = get_node_dimensions(focus, screen_dimensions);
-					*/
-					node *new_window = (node *) create_window(WINDOW, map_event->window);
+				configure_tree(connection, current_node, *screen_dimensions);
+				xcb_flush(connection);
 
-					if (focus == current_node)
-						current_node = (node *) fork_node(focus, new_window, H_SPLIT_CONTAINER);
-					else
-						fork_node(focus, new_window, H_SPLIT_CONTAINER);
-
-					focus = new_window;
-					configure_tree(connection, current_node, *screen_dimensions);
-
-					xcb_flush(connection);
-				}
+				print_tree(tree, 0);
+				printf("focus: %x\n", focus);
+				printf("current_node: %x\n", current_node);
 
 				free(attributes_reply);
 
 				break;
 			case XCB_UNMAP_NOTIFY:;
-				/*
-				xcb_map_notify_event_t *unmap_event = (xcb_unmap_notify_event_t *) event;
-				window *old_window;
+				xcb_unmap_notify_event_t *unmap_event = (xcb_unmap_notify_event_t *) event;
 
-				if (old_window = find_window(tree, unmap_event->window))
-				{
-					unfork_node();
-				}
-				*/
+				window *old_window = find_window(tree, unmap_event->window);
+				/*
+				if (old_window)
+					unmap_window(old_window);
+					*/
+
+				configure_tree(connection, current_node, *screen_dimensions);
+				xcb_flush(connection);
 				break;
 		}
 	}
+}
+
+void split_focus_window(xcb_window_t new_id)
+{
+	node *new_window = (node *) create_window(WINDOW, new_id);
+
+	if (focus == current_node)
+		current_node = fork_node(focus, new_window, V_SPLIT_CONTAINER);
+	else
+		fork_node(focus, new_window, V_SPLIT_CONTAINER);
+
+	focus = new_window;
+}
+
+void remove_focus_window()
+{
+	if (!focus || !focus->parent)
+		return;
+	
+	unfork_node(focus);
 }
 
 void exec_dmenu (char *arguments)
