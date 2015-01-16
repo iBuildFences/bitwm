@@ -6,6 +6,7 @@
 #include <xcb/xproto.h>
 
 #include "bin_tree.h"
+#include "tags.h"
 
 xcb_key_symbols_t *keysyms;
 
@@ -33,8 +34,7 @@ node *tree = NULL; //the top node of the tree. parent should always be NULL
 node *current_node = NULL; //the current top node displayed on the screen
 node *focus = NULL; //current focus node
 
-node **tags;
-int num_tags;
+tag *tag_spaces;
 
 void (*map_window)(xcb_window_t id);
 void (*unmap_window)(window *old_window);
@@ -73,6 +73,8 @@ int main (void)
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
 		xcb_grab_key(connection, 1, screen->root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
 	}
+
+	tag_spaces = create_tag_space(tree);
 
 	xcb_flush(connection);
 

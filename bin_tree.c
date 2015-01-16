@@ -86,6 +86,31 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
+window adjacent_window (node *current_node, char direction)
+{
+	char split_type;
+	char child_number;
+
+	if (direction == 'l' || direction == 'r')
+	{
+		split_type = H_SPLIT_CONTAINER;
+		if (direction == 'l')
+			child_number = 0;
+	}
+	else if (direction == 'u' || direction =='d')
+	{
+		split_type == V_SPLIT_CONTAINER;
+		if (direction == 'u')
+			child_number = 0;
+	}
+	else
+		return NULL; //invalid direction
+
+	while (current_node->parent != NULL && !current_node->split_type & split_type)
+	{
+	}
+}
+
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)
 {
 	if (!current_node)
