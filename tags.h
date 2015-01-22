@@ -5,14 +5,14 @@ struct tag
 {
 	char name;
 	node *target;
-	tag *next_tag;
+	tag *next;
 };
 
 struct tag_space
 {
 	node *scope;
 	tag *first_tag;
-	tag_space *next_tag_space;
+	tag_space *next;
 };
 
 tag *find_tag (tag *tags, char name);

@@ -74,7 +74,7 @@ int main (void)
 		xcb_grab_key(connection, 1, screen->root, bindings[i].modifiers, bindings[i].key_code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
 	}
 
-	tag_spaces = create_tag_space(tree);
+	//tag_spaces = create_tag_space(tree);
 
 	xcb_flush(connection);
 
@@ -92,6 +92,20 @@ int main (void)
 					if (bindings[i].key_code == key_event->detail)
 						bindings[i].function(bindings[i].arguments);
 				break;
+			case XCB_FOCUS_IN:;
+				xcb_focus_in_event_t *focus_event = (xcb_focus_in_event_t *) event;
+				node *temp;
+				/*
+				print_tree(current_node, 0);
+				printf("focus_in received\n");
+				printf("focus: %x\ntree: %x\n", focus, tree);
+				*/
+				if (temp = (node *) find_window(tree, focus_event->event))
+				{
+					//printf("setting focus\n");
+					focus = temp;
+				}
+				break;
 			case XCB_MAP_NOTIFY:;
 				xcb_map_notify_event_t *map_event = (xcb_map_notify_event_t *) event;
 
@@ -101,12 +115,26 @@ int main (void)
 				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
 					map_window(map_event->window);
 
+				if (!tree)
+					tree = current_node;
+				while (tree && tree->parent)
+					tree = (node *) tree->parent;
+
+				/*
+				print_tree(tree, 0);
+				printf("current_node: %x\nfocus: %x\n\n", current_node, focus);
+				*/
+
 				configure_tree(connection, current_node, *screen_dimensions);
+
+				const uint32_t value[1] = {XCB_EVENT_MASK_FOCUS_CHANGE};
+				xcb_change_window_attributes(connection, map_event->window, XCB_CW_EVENT_MASK, value);
+
 				xcb_flush(connection);
 
-				print_tree(tree, 0);
-				printf("focus: %x\n", focus);
-				printf("current_node: %x\n", current_node);
+				//print_tree(tree, 0);
+				//printf("focus: %x\n", focus);
+				//printf("current_node: %x\n", current_node);
 
 				free(attributes_reply);
 
@@ -139,12 +167,32 @@ void split_focus_window(xcb_window_t new_id)
 	focus = new_window;
 }
 
+/*
+void _tag_space(char *arguments)
+{
+}
+*/
+
 void remove_focus_window()
 {
 	if (!focus || !focus->parent)
 		return;
 	
 	unfork_node(focus);
+}
+
+void update_tree(node *old_node, node *new_node)
+{
+	tag_space *current_tag_space = tag_spaces;
+	tag *current_tag = tags;
+
+	while (current_tag_space = current_tag_space->next)
+	{
+		while (current_tag = current_tag->next)
+		{
+		}
+	}
+
 }
 
 void exec_dmenu (char *arguments)

@@ -13,6 +13,7 @@ window *create_window (char type, xcb_window_t id)
 	window *new_window = malloc(sizeof(window));
 	new_window->type = type;
 	new_window->id = id;
+	new_window->parent = NULL;
 	return new_window;
 }
 
@@ -23,6 +24,7 @@ container *create_container (char type)
 	container *new_container = malloc(sizeof(container));
 	new_container->type = type;
 	new_container->split_ratio = .5;
+	new_container->parent = NULL;
 	return new_container;
 }
 
@@ -86,7 +88,7 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
-window adjacent_window (node *current_node, char direction)
+window *adjacent_window (node *current_node, char direction)
 {
 	char split_type;
 	char child_number;
@@ -106,7 +108,7 @@ window adjacent_window (node *current_node, char direction)
 	else
 		return NULL; //invalid direction
 
-	while (current_node->parent != NULL && !current_node->split_type & split_type)
+	while (current_node->parent != NULL && !current_node->type & split_type)
 	{
 	}
 }
