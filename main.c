@@ -27,14 +27,19 @@ typedef struct workspace
 void exec_dmenu (char *arguments);
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
-void split_focus_window(xcb_window_t id);
-void remove_focus_window();
+void split_focus (xcb_window_t id);
+
+void remove_focus ();
+
+void update_tree ();
+void remove_tree (node *old_node);
+void set_references (node *old_node, node *new_node);
 
 node *tree = NULL; //the top node of the tree. parent should always be NULL
 node *current_node = NULL; //the current top node displayed on the screen
 node *focus = NULL; //current focus node
 
-tag *tag_spaces;
+tag_space *tag_spaces;
 
 void (*map_window)(xcb_window_t id);
 void (*unmap_window)(window *old_window);
@@ -78,7 +83,8 @@ int main (void)
 
 	xcb_flush(connection);
 
-	map_window = split_focus_window;
+	map_window = split_focus;
+	unmap_window = remove_focus;
 
 	while (1)
 	{
@@ -95,16 +101,9 @@ int main (void)
 			case XCB_FOCUS_IN:;
 				xcb_focus_in_event_t *focus_event = (xcb_focus_in_event_t *) event;
 				node *temp;
-				/*
-				print_tree(current_node, 0);
-				printf("focus_in received\n");
-				printf("focus: %x\ntree: %x\n", focus, tree);
-				*/
+
 				if (temp = (node *) find_window(tree, focus_event->event))
-				{
-					//printf("setting focus\n");
 					focus = temp;
-				}
 				break;
 			case XCB_MAP_NOTIFY:;
 				xcb_map_notify_event_t *map_event = (xcb_map_notify_event_t *) event;
@@ -115,15 +114,7 @@ int main (void)
 				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
 					map_window(map_event->window);
 
-				if (!tree)
-					tree = current_node;
-				while (tree && tree->parent)
-					tree = (node *) tree->parent;
-
-				/*
-				print_tree(tree, 0);
-				printf("current_node: %x\nfocus: %x\n\n", current_node, focus);
-				*/
+				update_tree ();
 
 				configure_tree(connection, current_node, *screen_dimensions);
 
@@ -155,7 +146,7 @@ int main (void)
 	}
 }
 
-void split_focus_window(xcb_window_t new_id)
+void split_focus (xcb_window_t new_id)
 {
 	node *new_window = (node *) create_window(WINDOW, new_id);
 
@@ -173,26 +164,49 @@ void _tag_space(char *arguments)
 }
 */
 
-void remove_focus_window()
+void remove_focus ()
 {
-	if (!focus || !focus->parent)
-		return;
-	
-	unfork_node(focus);
+	node *old_node = focus;
+	if (focus && focus != current_node)
+		focus = SIBLING(focus);
+	else
+		focus = NULL;
+	container *old_container = unfork_node(old_node);
+	set_references((node *) old_container, focus);
+	free(old_container);
+	remove_tree(old_node);
 }
 
-void update_tree(node *old_node, node *new_node)
+void remove_tree (node *old_node)
 {
-	tag_space *current_tag_space = tag_spaces;
-	tag *current_tag = tags;
-
-	while (current_tag_space = current_tag_space->next)
+	if (old_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
-		while (current_tag = current_tag->next)
-		{
-		}
+		remove_tree(((container *) old_node)->child[0]);
+		remove_tree(((container *) old_node)->child[1]);
 	}
 
+	set_references(old_node, NULL);
+	free(old_node);
+}
+
+void set_references (node *old_node, node *new_node)
+{
+	if (focus == old_node)
+		focus = new_node;
+	if (current_node == old_node)
+		current_node = new_node;
+	if (tree == old_node)
+		tree = new_node;
+
+	update_tag_spaces(tag_spaces, old_node, new_node);
+}
+
+void update_tree ()
+{
+	if (!tree)
+		tree = current_node;
+	while (tree && tree->parent)
+		tree = (node *) tree->parent;
 }
 
 void exec_dmenu (char *arguments)

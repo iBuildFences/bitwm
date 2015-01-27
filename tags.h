@@ -1,3 +1,5 @@
+#include "bin_tree.h"
+
 typedef struct tag tag;
 typedef struct tag_space tag_space;
 
@@ -17,6 +19,8 @@ struct tag_space
 
 tag *find_tag (tag *tags, char name);
 tag_space *find_tag_space (tag_space *tag_spaces, node *current_node);
+
+void update_tag_spaces(tag_space *tag_spaces, node *old_node, node *new_node);
 
 tag *create_tag (char name);
 tag_space *create_tag_space (node *scope);

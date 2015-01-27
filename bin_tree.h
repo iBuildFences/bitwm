@@ -1,3 +1,6 @@
+#ifndef BIN_TREE_HEADER
+#define BIN_TREE_HEADER
+
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -53,13 +56,11 @@ struct rectangle
 	int x, y, width, height;
 };
 
-
-
 window *create_window (char type, xcb_window_t id);
 container *create_container (char type);
 
 node *fork_node (node *existing_node, node *new_node, char split_type);
-void unfork_node (node *old_node);
+container *unfork_node (node *old_node);
 void swap_nodes (node *first_node, node *second_node);
 
 window *find_window (node *current_node, xcb_window_t id);
@@ -69,3 +70,4 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes);
 
 void print_tree (node *current_node, int num_tabs);
+#endif

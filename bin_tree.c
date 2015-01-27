@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <math.h>
 
+/*
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+*/
 
 #include "bin_tree.h"
 
@@ -13,7 +15,6 @@ window *create_window (char type, xcb_window_t id)
 	window *new_window = malloc(sizeof(window));
 	new_window->type = type;
 	new_window->id = id;
-	new_window->parent = NULL;
 	return new_window;
 }
 
@@ -24,7 +25,6 @@ container *create_container (char type)
 	container *new_container = malloc(sizeof(container));
 	new_container->type = type;
 	new_container->split_ratio = .5;
-	new_container->parent = NULL;
 	return new_container;
 }
 
@@ -47,16 +47,25 @@ node *fork_node (node *existing_node, node *new_node, char split_type)
 	return (node *) new_container;
 }
 
-void unfork_node (node *old_node)
+//return a reference to the removed container, which should be freed by caller
+container *unfork_node (node *old_node)
 {
+	if (!old_node || !old_node->parent)
+		return NULL;
+
 	node *sibling = SIBLING(old_node);
+	container *parent = old_node->parent;
 
-	sibling->parent = old_node->parent->parent;
+	sibling->parent = parent->parent;
+	AS_CHILD(parent) = sibling;
 
-	AS_CHILD(old_node->parent) = sibling;
-
-	free(old_node->parent);
+	free(parent);
 	old_node->parent = NULL;
+
+	parent->child[0] = NULL;
+	parent->child[1] = NULL;
+
+	return parent;
 }
 
 void swap_nodes (node *first_node, node *second_node)
