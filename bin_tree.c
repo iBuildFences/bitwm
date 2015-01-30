@@ -12,6 +12,7 @@ window *create_window (char type, xcb_window_t id)
 {
 	if (type & ~(WINDOW))
 		return NULL;
+
 	window *new_window = malloc(sizeof(window));
 	new_window->type = type;
 	new_window->id = id;
@@ -22,6 +23,7 @@ container *create_container (char type)
 {
 	if (type & ~(H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 		return NULL;
+
 	container *new_container = malloc(sizeof(container));
 	new_container->type = type;
 	new_container->split_ratio = .5;
@@ -57,13 +59,11 @@ container *unfork_node (node *old_node)
 	container *parent = old_node->parent;
 
 	sibling->parent = parent->parent;
-	AS_CHILD(parent) = sibling;
+	if (parent->parent)
+		AS_CHILD(parent) = sibling;
 
 	free(parent);
 	old_node->parent = NULL;
-
-	parent->child[0] = NULL;
-	parent->child[1] = NULL;
 
 	return parent;
 }
@@ -82,7 +82,8 @@ window *find_window (node *current_node, xcb_window_t id)
 {
 	if (!current_node)
 		return NULL;
-	else if (current_node->type & WINDOW && ((window *) current_node)->id == id)
+
+	if (current_node->type & WINDOW && ((window *) current_node)->id == id)
 		return (window *) current_node;
 	else if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{

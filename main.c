@@ -61,7 +61,7 @@ int main (void)
 	screen_dimensions->width = screen->width_in_pixels;
 	screen_dimensions->height = screen->height_in_pixels;
 
-	int num_bindings = 1;
+	int num_bindings = 2;
 	binding bindings[num_bindings];
 
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
@@ -70,8 +70,13 @@ int main (void)
 
 	bindings[0].key_sym = ' ';
 	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
-	bindings[0].function = exec_dmenu;
+	bindings[0].function = (void (*) ()) system;
+	bindings[0].arguments = "exec dmenu_run";
 
+	bindings[1].key_sym = 'r';
+	bindings[1].modifiers = XCB_MOD_MASK_CONTROL;
+	bindings[1].function = (void (*) ()) system;
+	bindings[1].arguments = "xterm &";
 
 	for (int i = 0; i < num_bindings; i++)
 	{
@@ -123,21 +128,14 @@ int main (void)
 
 				xcb_flush(connection);
 
-				//print_tree(tree, 0);
-				//printf("focus: %x\n", focus);
-				//printf("current_node: %x\n", current_node);
-
 				free(attributes_reply);
-
 				break;
 			case XCB_UNMAP_NOTIFY:;
 				xcb_unmap_notify_event_t *unmap_event = (xcb_unmap_notify_event_t *) event;
 
 				window *old_window = find_window(tree, unmap_event->window);
-				/*
 				if (old_window)
 					unmap_window(old_window);
-					*/
 
 				configure_tree(connection, current_node, *screen_dimensions);
 				xcb_flush(connection);
@@ -164,6 +162,15 @@ void _tag_space(char *arguments)
 }
 */
 
+//seperate funcions for relocating nodes (like to offscreen) should call unmap after unregistering for unmap events.
+
+//use this for unmap requests
+void remove_window (window *old_window)
+{
+
+}
+
+//use this for keybindings. should unmap and modify tree as necessary.
 void remove_focus ()
 {
 	node *old_node = focus;
@@ -173,10 +180,10 @@ void remove_focus ()
 		focus = NULL;
 	container *old_container = unfork_node(old_node);
 	set_references((node *) old_container, focus);
-	free(old_container);
 	remove_tree(old_node);
 }
 
+//this one probably needs to be rethought
 void remove_tree (node *old_node)
 {
 	if (old_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
