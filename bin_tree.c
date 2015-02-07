@@ -123,11 +123,26 @@ window *adjacent_window (node *current_node, char direction)
 	}
 }
 
+void unmap_tree (xcb_connection_t *connection, node *current_node)
+{
+	if (!current_node)
+		return;
+
+	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
+	{
+		unmap_tree(connection, ((container *) current_node)->child[0]);
+		unmap_tree(connection, ((container *) current_node)->child[1]);
+	}
+	else if (current_node-> type & WINDOW)
+		xcb_unmap_window(connection, ((window *) current_node)->id);
+}
+
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)
 {
 	if (!current_node)
 		return;
-	else if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
+
+	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
 		container *current_container = (container *) current_node;
 

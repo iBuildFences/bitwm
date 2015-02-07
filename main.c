@@ -24,12 +24,12 @@ typedef struct workspace
 	rectangle *dimensions;
 } workspace;
 
-void exec_dmenu (char *arguments);
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
 void split_focus (xcb_window_t id);
+void unmap_focus ();
 
-void remove_focus ();
+void remove_window (window *old_window);
 
 void update_tree ();
 void remove_tree (node *old_node);
@@ -78,6 +78,13 @@ int main (void)
 	bindings[1].function = (void (*) ()) system;
 	bindings[1].arguments = "xterm &";
 
+	/*
+	bindings[2].key_sym = 'q';
+	bindings[2].modifiers = XCB_MOD_MASK_CONTROL;
+	bindings[2].function = (void (*) ()) unmap_focus;
+	//bindings[2].arguments = "xterm &";
+	*/
+
 	for (int i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
@@ -89,7 +96,7 @@ int main (void)
 	xcb_flush(connection);
 
 	map_window = split_focus;
-	unmap_window = remove_focus;
+	unmap_window = remove_window;
 
 	while (1)
 	{
@@ -167,12 +174,16 @@ void _tag_space(char *arguments)
 //use this for unmap requests
 void remove_window (window *old_window)
 {
-
+	node *sibling = old_window->parent ? SIBLING(old_window) : NULL;
+	set_references((node *) old_window, sibling);
+	set_references((node *) unfork_node((node *) old_window), sibling);
 }
 
 //use this for keybindings. should unmap and modify tree as necessary.
-void remove_focus ()
+void unmap_focus ()
 {
+	unmap_tree(connection, focus);
+	/*
 	node *old_node = focus;
 	if (focus && focus != current_node)
 		focus = SIBLING(focus);
@@ -181,6 +192,7 @@ void remove_focus ()
 	container *old_container = unfork_node(old_node);
 	set_references((node *) old_container, focus);
 	remove_tree(old_node);
+	*/
 }
 
 //this one probably needs to be rethought
@@ -214,11 +226,6 @@ void update_tree ()
 		tree = current_node;
 	while (tree && tree->parent)
 		tree = (node *) tree->parent;
-}
-
-void exec_dmenu (char *arguments)
-{
-	system("exec dmenu_run");
 }
 
 xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
