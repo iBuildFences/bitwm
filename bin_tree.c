@@ -100,41 +100,72 @@ window *find_window (node *current_node, xcb_window_t id)
 
 window *adjacent_window (node *current_node, char direction)
 {
+	if (!current_node || !current_node->parent)
+		return NULL;
+
 	char split_type;
 	char child_number;
 
+	int i;
+	container *parent = current_node->parent;
+	for (i = 0; parent; parent = parent->parent, i++)
+		;
+	char split_direction[i];
+
 	if (direction == 'l' || direction == 'r')
 	{
-		split_type = H_SPLIT_CONTAINER;
+		split_type = V_SPLIT_CONTAINER;
 		if (direction == 'l')
+			child_number = 1;
+		else
 			child_number = 0;
 	}
 	else if (direction == 'u' || direction =='d')
 	{
-		split_type == V_SPLIT_CONTAINER;
+		split_type = H_SPLIT_CONTAINER;
 		if (direction == 'u')
+			child_number = 1;
+		else
 			child_number = 0;
 	}
 	else
 		return NULL; //invalid direction
 
-	while (current_node->parent != NULL && !current_node->type & split_type)
+	while (current_node->parent != NULL && !(current_node->parent->type & split_type && CHILD_NUMBER(current_node) == child_number))
 	{
+		current_node = (node *) current_node->parent;
+		if (!(current_node->type & split_type))
+			split_direction[i++] = CHILD_NUMBER(current_node);
 	}
+
+	if (current_node->parent)
+		current_node = SIBLING(current_node);
+	
+	while (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
+		if (current_node->type & split_type)
+			current_node = ((container *) current_node)->child[child_number];
+		else
+			current_node = ((container *) current_node)->child[split_direction[i > 0 ? --i : 0]];
+
+	if (current_node->type & WINDOW)
+		return (window *) current_node;
+	else
+		return NULL;
 }
 
-void unmap_tree (xcb_connection_t *connection, node *current_node)
+//this needs to be changed, preferably to use an ewmh function, or similar
+void kill_tree (xcb_connection_t *connection, node *current_node)
 {
 	if (!current_node)
 		return;
 
 	if (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 	{
-		unmap_tree(connection, ((container *) current_node)->child[0]);
-		unmap_tree(connection, ((container *) current_node)->child[1]);
+		kill_tree(connection, ((container *) current_node)->child[0]);
+		kill_tree(connection, ((container *) current_node)->child[1]);
 	}
 	else if (current_node-> type & WINDOW)
-		xcb_unmap_window(connection, ((window *) current_node)->id);
+		xcb_kill_client(connection, ((window *) current_node)->id);
 }
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions)

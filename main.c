@@ -12,7 +12,8 @@ xcb_key_symbols_t *keysyms;
 
 typedef struct binding
 {
-	xcb_keysym_t key_sym; xcb_keycode_t key_code;
+	xcb_keysym_t key_sym;
+	xcb_keycode_t key_code;
 	uint16_t modifiers;
 	char *arguments;
 	void (*function) (char *arguments);
@@ -27,7 +28,8 @@ typedef struct workspace
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
 void split_focus (xcb_window_t id);
-void unmap_focus ();
+void kill_focus ();
+void move_focus (char *direction);
 
 void remove_window (window *old_window);
 
@@ -61,7 +63,7 @@ int main (void)
 	screen_dimensions->width = screen->width_in_pixels;
 	screen_dimensions->height = screen->height_in_pixels;
 
-	int num_bindings = 2;
+	int num_bindings = 5;
 	binding bindings[num_bindings];
 
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
@@ -69,21 +71,28 @@ int main (void)
 	xcb_change_window_attributes(connection, screen->root, XCB_CW_EVENT_MASK, value);
 
 	bindings[0].key_sym = ' ';
-	bindings[0].modifiers = XCB_MOD_MASK_CONTROL;
+	bindings[0].modifiers = XCB_MOD_MASK_4;
 	bindings[0].function = (void (*) ()) system;
 	bindings[0].arguments = "exec dmenu_run";
 
-	bindings[1].key_sym = 'r';
-	bindings[1].modifiers = XCB_MOD_MASK_CONTROL;
+	bindings[1].key_sym = 0xff0d; //'\r';
+	bindings[1].modifiers = XCB_MOD_MASK_4;
 	bindings[1].function = (void (*) ()) system;
 	bindings[1].arguments = "xterm &";
 
-	/*
 	bindings[2].key_sym = 'q';
-	bindings[2].modifiers = XCB_MOD_MASK_CONTROL;
-	bindings[2].function = (void (*) ()) unmap_focus;
-	//bindings[2].arguments = "xterm &";
-	*/
+	bindings[2].modifiers = XCB_MOD_MASK_4;
+	bindings[2].function = (void (*) ()) kill_focus;
+
+	bindings[3].key_sym = 'h';
+	bindings[3].modifiers = XCB_MOD_MASK_4;
+	bindings[3].function = (void (*) ()) move_focus;
+	bindings[3].arguments = "l";
+
+	bindings[4].key_sym = 'l';
+	bindings[4].modifiers = XCB_MOD_MASK_4;
+	bindings[4].function = (void (*) ()) move_focus;
+	bindings[4].arguments = "r";
 
 	for (int i = 0; i < num_bindings; i++)
 	{
@@ -110,11 +119,11 @@ int main (void)
 					if (bindings[i].key_code == key_event->detail)
 						bindings[i].function(bindings[i].arguments);
 				break;
-			case XCB_FOCUS_IN:;
-				xcb_focus_in_event_t *focus_event = (xcb_focus_in_event_t *) event;
+			case XCB_ENTER_NOTIFY:;
+				xcb_enter_notify_event_t *enter_notify_event = (xcb_enter_notify_event_t *) event;
 				node *temp;
 
-				if (temp = (node *) find_window(tree, focus_event->event))
+				if (temp = (node *) find_window(tree, enter_notify_event->event))
 					focus = temp;
 				break;
 			case XCB_MAP_NOTIFY:;
@@ -130,7 +139,7 @@ int main (void)
 
 				configure_tree(connection, current_node, *screen_dimensions);
 
-				const uint32_t value[1] = {XCB_EVENT_MASK_FOCUS_CHANGE};
+				const uint32_t value[1] = {XCB_EVENT_MASK_ENTER_WINDOW};
 				xcb_change_window_attributes(connection, map_event->window, XCB_CW_EVENT_MASK, value);
 
 				xcb_flush(connection);
@@ -180,9 +189,10 @@ void remove_window (window *old_window)
 }
 
 //use this for keybindings. should unmap and modify tree as necessary.
-void unmap_focus ()
+void kill_focus ()
 {
-	unmap_tree(connection, focus);
+	kill_tree(connection, focus);
+	xcb_flush(connection);
 	/*
 	node *old_node = focus;
 	if (focus && focus != current_node)
@@ -193,6 +203,17 @@ void unmap_focus ()
 	set_references((node *) old_container, focus);
 	remove_tree(old_node);
 	*/
+}
+
+void move_focus (char *direction)
+{
+	window *temp = adjacent_window (focus, *direction);
+	focus = temp ? (node *) temp : focus;
+	if (focus && focus->type & WINDOW)
+	{
+		xcb_set_input_focus(connection, XCB_INPUT_FOCUS_NONE, ((window *) focus)->id, XCB_CURRENT_TIME);
+		xcb_flush(connection);
+	}
 }
 
 //this one probably needs to be rethought

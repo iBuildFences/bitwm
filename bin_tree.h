@@ -64,9 +64,10 @@ container *unfork_node (node *old_node);
 void swap_nodes (node *first_node, node *second_node);
 
 window *find_window (node *current_node, xcb_window_t id);
+window *adjacent_window (node *current_node, char direction);
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions);
-void unmap_tree (xcb_connection_t *connection, node *current_node);
+void kill_tree (xcb_connection_t *connection, node *current_node);
 
 node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes);
 
