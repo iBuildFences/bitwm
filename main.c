@@ -119,6 +119,7 @@ int main (void)
 					if (bindings[i].key_code == key_event->detail)
 						bindings[i].function(bindings[i].arguments);
 				break;
+				/*
 			case XCB_ENTER_NOTIFY:;
 				xcb_enter_notify_event_t *enter_notify_event = (xcb_enter_notify_event_t *) event;
 				node *temp;
@@ -126,14 +127,15 @@ int main (void)
 				if (temp = (node *) find_window(tree, enter_notify_event->event))
 					focus = temp;
 				break;
+				*/
 			case XCB_MAP_NOTIFY:;
 				xcb_map_notify_event_t *map_event = (xcb_map_notify_event_t *) event;
 
 				xcb_get_window_attributes_cookie_t attributes_cookie = xcb_get_window_attributes_unchecked(connection, map_event->window);
 				xcb_get_window_attributes_reply_t *attributes_reply = xcb_get_window_attributes_reply(connection, attributes_cookie, NULL);
 
-				if (!find_window(tree, map_event->window) && !attributes_reply->override_redirect)
-					map_window(map_event->window);
+				if (!attributes_reply->override_redirect && !find_window(tree, map_event->window))
+					(*map_window)(map_event->window);
 
 				update_tree ();
 
@@ -141,6 +143,8 @@ int main (void)
 
 				const uint32_t value[1] = {XCB_EVENT_MASK_ENTER_WINDOW};
 				xcb_change_window_attributes(connection, map_event->window, XCB_CW_EVENT_MASK, value);
+
+				xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
 
 				xcb_flush(connection);
 
@@ -151,9 +155,12 @@ int main (void)
 
 				window *old_window = find_window(tree, unmap_event->window);
 				if (old_window)
-					unmap_window(old_window);
+					(*unmap_window)(old_window);
 
 				configure_tree(connection, current_node, *screen_dimensions);
+
+				xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
+
 				xcb_flush(connection);
 				break;
 		}
@@ -183,8 +190,20 @@ void _tag_space(char *arguments)
 //use this for unmap requests
 void remove_window (window *old_window)
 {
-	node *sibling = old_window->parent ? SIBLING(old_window) : NULL;
-	set_references((node *) old_window, sibling);
+	node *sibling, *adjacent;
+	if (old_window->parent)
+	{
+		sibling = SIBLING(old_window);
+
+		int child_number = CHILD_NUMBER(old_window);
+		adjacent = SIBLING(old_window);
+		while (adjacent->type & (V_SPLIT_CONTAINER | H_SPLIT_CONTAINER))
+			adjacent = ((container *) adjacent)->child[child_number];
+	}
+	else
+		sibling = adjacent = NULL;
+
+	set_references((node *) old_window, adjacent);
 	set_references((node *) unfork_node((node *) old_window), sibling);
 }
 
@@ -211,7 +230,7 @@ void move_focus (char *direction)
 	focus = temp ? (node *) temp : focus;
 	if (focus && focus->type & WINDOW)
 	{
-		xcb_set_input_focus(connection, XCB_INPUT_FOCUS_NONE, ((window *) focus)->id, XCB_CURRENT_TIME);
+		xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
 		xcb_flush(connection);
 	}
 }
