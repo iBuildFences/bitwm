@@ -25,6 +25,12 @@ typedef struct workspace
 	rectangle *dimensions;
 } workspace;
 
+struct
+{
+	char split_type;
+	char child_number;
+} next_window_position = {V_SPLIT_CONTAINER, 1};
+
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
 void split_focus (xcb_window_t id);
@@ -87,12 +93,26 @@ int main (void)
 	bindings[3].key_sym = 'h';
 	bindings[3].modifiers = XCB_MOD_MASK_4;
 	bindings[3].function = (void (*) ()) move_focus;
-	bindings[3].arguments = "l";
+	char left[2] = {V_SPLIT_CONTAINER, 0};
+	bindings[3].arguments = left;
 
 	bindings[4].key_sym = 'l';
 	bindings[4].modifiers = XCB_MOD_MASK_4;
 	bindings[4].function = (void (*) ()) move_focus;
-	bindings[4].arguments = "r";
+	char right[2] = {V_SPLIT_CONTAINER, 1};
+	bindings[4].arguments = right;
+
+	bindings[5].key_sym = 'k';
+	bindings[5].modifiers = XCB_MOD_MASK_4;
+	bindings[5].function = (void (*) ()) move_focus;
+	char up[2] = {H_SPLIT_CONTAINER, 0};
+	bindings[5].arguments = up;
+
+	bindings[6].key_sym = 'j';
+	bindings[6].modifiers = XCB_MOD_MASK_4;
+	bindings[6].function = (void (*) ()) move_focus;
+	char down[2] = {H_SPLIT_CONTAINER, 1};
+	bindings[6].arguments = down;
 
 	for (int i = 0; i < num_bindings; i++)
 	{
@@ -137,7 +157,7 @@ int main (void)
 				if (!attributes_reply->override_redirect && !find_window(tree, map_event->window))
 					(*map_window)(map_event->window);
 
-				update_tree ();
+				//update_tree ();
 
 				configure_tree(connection, current_node, *screen_dimensions);
 
@@ -171,12 +191,20 @@ void split_focus (xcb_window_t new_id)
 {
 	node *new_window = (node *) create_window(WINDOW, new_id);
 
+	/*
 	if (focus == current_node)
 		current_node = fork_node(focus, new_window, V_SPLIT_CONTAINER);
 	else
-		fork_node(focus, new_window, V_SPLIT_CONTAINER);
+	*/
+
+	fork_node(focus, new_window, V_SPLIT_CONTAINER);
 
 	focus = new_window;
+
+	if (focus->parent)
+		set_references(SIBLING(focus), (node *) focus->parent);
+	else
+		set_references(NULL, focus);
 }
 
 /*
@@ -226,7 +254,10 @@ void kill_focus ()
 
 void move_focus (char *direction)
 {
-	window *temp = adjacent_window (focus, *direction);
+	char split_type = direction[0];
+	char child_number = direction[1];
+
+	window *temp = adjacent_window (focus, split_type, child_number);
 	focus = temp ? (node *) temp : focus;
 	if (focus && focus->type & WINDOW)
 	{

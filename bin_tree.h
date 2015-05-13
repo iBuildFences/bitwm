@@ -25,11 +25,6 @@ enum node_types
 	H_SPLIT_CONTAINER = 4
 };
 
-enum directions
-{
-	LEFT, RIGHT, UP, DOWN
-};
-
 struct node
 {
 	char type;
@@ -64,7 +59,7 @@ container *unfork_node (node *old_node);
 void swap_nodes (node *first_node, node *second_node);
 
 window *find_window (node *current_node, xcb_window_t id);
-window *adjacent_window (node *current_node, char direction);
+window *adjacent_window (node *current_node, char split_type, char child_number);
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions);
 void kill_tree (xcb_connection_t *connection, node *current_node);

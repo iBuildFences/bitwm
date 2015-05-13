@@ -20,6 +20,5 @@ void update_tag_spaces(tag_space *current_tag_space, node *old_node, node *new_n
 
 		current_tag_space = current_tag_space->next;
 	}
-
 }
 

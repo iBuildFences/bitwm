@@ -98,13 +98,15 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
-window *adjacent_window (node *current_node, char direction)
+window *adjacent_window (node *current_node, char split_type, char child_number)
 {
 	if (!current_node || !current_node->parent)
 		return NULL;
 
+	/*
 	char split_type;
 	char child_number;
+	*/
 
 	int i;
 	container *parent = current_node->parent;
@@ -112,6 +114,7 @@ window *adjacent_window (node *current_node, char direction)
 		;
 	char split_direction[i];
 
+	/*
 	if (direction == 'l' || direction == 'r')
 	{
 		split_type = V_SPLIT_CONTAINER;
@@ -130,8 +133,9 @@ window *adjacent_window (node *current_node, char direction)
 	}
 	else
 		return NULL; //invalid direction
+		*/
 
-	while (current_node->parent != NULL && !(current_node->parent->type & split_type && CHILD_NUMBER(current_node) == child_number))
+	while (current_node->parent != NULL && !(current_node->parent->type & split_type && CHILD_NUMBER(current_node) != child_number))
 	{
 		current_node = (node *) current_node->parent;
 		if (!(current_node->type & split_type))
@@ -143,7 +147,7 @@ window *adjacent_window (node *current_node, char direction)
 	
 	while (current_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 		if (current_node->type & split_type)
-			current_node = ((container *) current_node)->child[child_number];
+			current_node = ((container *) current_node)->child[!child_number];
 		else
 			current_node = ((container *) current_node)->child[split_direction[i > 0 ? --i : 0]];
 
