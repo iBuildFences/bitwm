@@ -39,6 +39,8 @@ void move_focus (char *direction);
 
 void remove_window (window *old_window);
 
+void set_next_window_position(char *arguments);
+
 void update_tree ();
 void remove_tree (node *old_node);
 void set_references (node *old_node, node *new_node);
@@ -114,6 +116,26 @@ int main (void)
 	char down[2] = {H_SPLIT_CONTAINER, 1};
 	bindings[6].arguments = down;
 
+	bindings[7].key_sym = 'j';
+	bindings[7].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
+	bindings[7].function = (void (*) ()) set_next_window_position;
+	bindings[7].arguments = down;
+
+	bindings[8].key_sym = 'k';
+	bindings[8].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
+	bindings[8].function = (void (*) ()) set_next_window_position;
+	bindings[8].arguments = up;
+
+	bindings[9].key_sym = 'h';
+	bindings[9].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
+	bindings[9].function = (void (*) ()) set_next_window_position;
+	bindings[9].arguments = left;
+
+	bindings[10].key_sym = 'l';
+	bindings[10].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
+	bindings[10].function = (void (*) ()) set_next_window_position;
+	bindings[10].arguments = right;
+
 	for (int i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
@@ -136,7 +158,7 @@ int main (void)
 			case XCB_KEY_PRESS:;
 				xcb_key_press_event_t *key_event = (xcb_key_press_event_t *) event;
 				for (int i = 0; i < num_bindings; i++)
-					if (bindings[i].key_code == key_event->detail)
+					if (bindings[i].key_code == key_event->detail && key_event->state == bindings[i].modifiers)
 						bindings[i].function(bindings[i].arguments);
 				break;
 				/*
@@ -197,7 +219,9 @@ void split_focus (xcb_window_t new_id)
 	else
 	*/
 
-	fork_node(focus, new_window, V_SPLIT_CONTAINER);
+	fork_node(focus, new_window, next_window_position.split_type);
+	if (!next_window_position.child_number)
+		swap_nodes(focus, new_window);
 
 	focus = new_window;
 
@@ -233,6 +257,12 @@ void remove_window (window *old_window)
 
 	set_references((node *) old_window, adjacent);
 	set_references((node *) unfork_node((node *) old_window), sibling);
+}
+
+void set_next_window_position(char *arguments)
+{
+	next_window_position.split_type = arguments[0];
+	next_window_position.child_number = arguments[0];
 }
 
 //use this for keybindings. should unmap and modify tree as necessary.
