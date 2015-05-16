@@ -27,20 +27,20 @@ enum node_types
 
 struct node
 {
-	char type;
+	uint8_t	type;
 	container *parent;
 };
 
 struct window
 {
-	char type; //should always include WINDOW
+	uint8_t	type; //should always include WINDOW
 	container *parent;
 	xcb_window_t id;
 };
 
 struct container
 {
-	char type; //should include either H_SPLIT_CONTAINER or V_SPLIT_CONTAINER
+	uint8_t	type; //should include either H_SPLIT_CONTAINER or V_SPLIT_CONTAINER
 	container *parent;
 	node *child[2];
 	double split_ratio;
@@ -51,15 +51,15 @@ struct rectangle
 	int x, y, width, height;
 };
 
-window *create_window (char type, xcb_window_t id);
-container *create_container (char type);
+window *create_window (uint8_t	type, xcb_window_t id);
+container *create_container (uint8_t	type);
 
-node *fork_node (node *existing_node, node *new_node, char split_type);
+node *fork_node (node *existing_node, node *new_node, uint8_t	split_type);
 container *unfork_node (node *old_node);
 void swap_nodes (node *first_node, node *second_node);
 
 window *find_window (node *current_node, xcb_window_t id);
-window *adjacent_window (node *current_node, char split_type, char child_number);
+window *adjacent_window (node *current_node, uint8_t	split_type, uint8_t	child_number);
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions);
 void kill_tree (xcb_connection_t *connection, node *current_node);

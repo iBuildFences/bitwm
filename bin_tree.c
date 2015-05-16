@@ -8,7 +8,7 @@
 
 #include "bin_tree.h"
 
-window *create_window (char type, xcb_window_t id)
+window *create_window (uint8_t type, xcb_window_t id)
 {
 	if (type & ~(WINDOW))
 		return NULL;
@@ -19,7 +19,7 @@ window *create_window (char type, xcb_window_t id)
 	return new_window;
 }
 
-container *create_container (char type)
+container *create_container (uint8_t type)
 {
 	if (type & ~(H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
 		return NULL;
@@ -30,7 +30,7 @@ container *create_container (char type)
 	return new_container;
 }
 
-node *fork_node (node *existing_node, node *new_node, char split_type)
+node *fork_node (node *existing_node, node *new_node, uint8_t split_type)
 {
 	if (!existing_node)
 		return new_node;
@@ -98,21 +98,21 @@ window *find_window (node *current_node, xcb_window_t id)
 		return NULL;
 }
 
-window *adjacent_window (node *current_node, char split_type, char child_number)
+window *adjacent_window (node *current_node, uint8_t split_type, uint8_t child_number)
 {
 	if (!current_node || !current_node->parent)
 		return NULL;
 
 	/*
-	char split_type;
-	char child_number;
+	uint8_t split_type;
+	uint8_t child_number;
 	*/
 
 	int i;
 	container *parent = current_node->parent;
 	for (i = 0; parent; parent = parent->parent, i++)
 		;
-	char split_direction[i];
+	uint8_t split_direction[i];
 
 	/*
 	if (direction == 'l' || direction == 'r')

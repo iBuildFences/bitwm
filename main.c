@@ -15,8 +15,8 @@ typedef struct binding
 	xcb_keysym_t key_sym;
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
-	char *arguments;
-	void (*function) (char *arguments);
+	uint8_t *arguments;
+	void (*function) (uint8_t *arguments);
 } binding; 
 
 typedef struct workspace
@@ -27,19 +27,19 @@ typedef struct workspace
 
 struct
 {
-	char split_type;
-	char child_number;
+	uint8_t split_type;
+	uint8_t child_number;
 } next_window_position = {V_SPLIT_CONTAINER, 1};
 
 xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
 
 void split_focus (xcb_window_t id);
 void kill_focus ();
-void move_focus (char *direction);
+void move_focus (uint8_t *direction);
 
 void remove_window (window *old_window);
 
-void set_next_window_position(char *arguments);
+void set_next_window_position(uint8_t *arguments);
 
 void update_tree ();
 void remove_tree (node *old_node);
@@ -56,6 +56,11 @@ void (*unmap_window)(window *old_window);
 
 xcb_connection_t *connection;
 
+uint8_t left[2] = {V_SPLIT_CONTAINER, 0};
+uint8_t right[2] = {V_SPLIT_CONTAINER, 1};
+uint8_t up[2] = {H_SPLIT_CONTAINER, 0};
+uint8_t down[2] = {H_SPLIT_CONTAINER, 1};
+
 int main (void)
 {
 	setbuf(stdout, NULL);
@@ -71,7 +76,7 @@ int main (void)
 	screen_dimensions->width = screen->width_in_pixels;
 	screen_dimensions->height = screen->height_in_pixels;
 
-	int num_bindings = 5;
+	int num_bindings = 11;
 	binding bindings[num_bindings];
 
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
@@ -92,44 +97,42 @@ int main (void)
 	bindings[2].modifiers = XCB_MOD_MASK_4;
 	bindings[2].function = (void (*) ()) kill_focus;
 
+
 	bindings[3].key_sym = 'h';
 	bindings[3].modifiers = XCB_MOD_MASK_4;
 	bindings[3].function = (void (*) ()) move_focus;
-	char left[2] = {V_SPLIT_CONTAINER, 0};
 	bindings[3].arguments = left;
 
-	bindings[4].key_sym = 'l';
+	bindings[4].key_sym = 'j';
 	bindings[4].modifiers = XCB_MOD_MASK_4;
 	bindings[4].function = (void (*) ()) move_focus;
-	char right[2] = {V_SPLIT_CONTAINER, 1};
-	bindings[4].arguments = right;
+	bindings[4].arguments = down;
 
 	bindings[5].key_sym = 'k';
 	bindings[5].modifiers = XCB_MOD_MASK_4;
 	bindings[5].function = (void (*) ()) move_focus;
-	char up[2] = {H_SPLIT_CONTAINER, 0};
 	bindings[5].arguments = up;
 
-	bindings[6].key_sym = 'j';
+	bindings[6].key_sym = 'l';
 	bindings[6].modifiers = XCB_MOD_MASK_4;
 	bindings[6].function = (void (*) ()) move_focus;
-	char down[2] = {H_SPLIT_CONTAINER, 1};
-	bindings[6].arguments = down;
+	bindings[6].arguments = right;
 
-	bindings[7].key_sym = 'j';
+
+	bindings[7].key_sym = 'h';
 	bindings[7].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[7].function = (void (*) ()) set_next_window_position;
-	bindings[7].arguments = down;
+	bindings[7].arguments = left;
 
-	bindings[8].key_sym = 'k';
+	bindings[8].key_sym = 'j';
 	bindings[8].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[8].function = (void (*) ()) set_next_window_position;
-	bindings[8].arguments = up;
+	bindings[8].arguments = down;
 
-	bindings[9].key_sym = 'h';
+	bindings[9].key_sym = 'k';
 	bindings[9].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[9].function = (void (*) ()) set_next_window_position;
-	bindings[9].arguments = left;
+	bindings[9].arguments = up;
 
 	bindings[10].key_sym = 'l';
 	bindings[10].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
@@ -232,7 +235,7 @@ void split_focus (xcb_window_t new_id)
 }
 
 /*
-void _tag_space(char *arguments)
+void _tag_space(uint8_t *arguments)
 {
 }
 */
@@ -259,7 +262,7 @@ void remove_window (window *old_window)
 	set_references((node *) unfork_node((node *) old_window), sibling);
 }
 
-void set_next_window_position(char *arguments)
+void set_next_window_position(uint8_t *arguments)
 {
 	next_window_position.split_type = arguments[0];
 	next_window_position.child_number = arguments[0];
@@ -282,10 +285,10 @@ void kill_focus ()
 	*/
 }
 
-void move_focus (char *direction)
+void move_focus (uint8_t *direction)
 {
-	char split_type = direction[0];
-	char child_number = direction[1];
+	uint8_t split_type = direction[0];
+	uint8_t child_number = direction[1];
 
 	window *temp = adjacent_window (focus, split_type, child_number);
 	focus = temp ? (node *) temp : focus;
