@@ -265,7 +265,7 @@ void remove_window (window *old_window)
 void set_next_window_position(uint8_t *arguments)
 {
 	next_window_position.split_type = arguments[0];
-	next_window_position.child_number = arguments[0];
+	next_window_position.child_number = arguments[1];
 }
 
 //use this for keybindings. should unmap and modify tree as necessary.
