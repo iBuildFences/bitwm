@@ -48,7 +48,7 @@ struct container
 
 struct rectangle
 {
-	int x, y, width, height;
+	double x, y, width, height;
 };
 
 window *create_window (uint8_t	type, xcb_window_t id);

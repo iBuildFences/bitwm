@@ -49,7 +49,7 @@ node *fork_node (node *existing_node, node *new_node, uint8_t split_type)
 	return (node *) new_container;
 }
 
-//return a reference to the removed container, which should be freed by caller
+//return a reference to the removed container, which should be freed by the caller
 container *unfork_node (node *old_node)
 {
 	if (!old_node || !old_node->parent)
@@ -70,6 +70,9 @@ container *unfork_node (node *old_node)
 
 void swap_nodes (node *first_node, node *second_node)
 {
+	if (!first_node || !second_node)
+		return;
+
 	container *parent = first_node->parent;
 	int child_number = CHILD_NUMBER(first_node);
 	first_node->parent = second_node->parent;
@@ -108,6 +111,8 @@ window *adjacent_window (node *current_node, uint8_t split_type, uint8_t child_n
 	for (i = 0; parent; parent = parent->parent, i++)
 		;
 	uint8_t split_direction[i];
+
+	i = 0;
 
 	while (current_node->parent != NULL && !(current_node->parent->type & split_type && CHILD_NUMBER(current_node) != child_number))
 	{
@@ -178,8 +183,8 @@ void configure_tree (xcb_connection_t *connection, node *current_node, rectangle
 	{
 		window *current_window = (window *) current_node;
 
-		uint16_t value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-		uint32_t value_list[4] = {dimensions.x, dimensions.y, dimensions.width, dimensions.height};
+		uint16_t value_mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH;
+		uint32_t value_list[] = {(int ) dimensions.x, (int ) dimensions.y, (int ) dimensions.width - 4, (int ) dimensions.height - 4, 4};
 
 		xcb_configure_window(connection, current_window->id, value_mask, value_list);
 	}

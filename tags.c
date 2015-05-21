@@ -1,5 +1,18 @@
 #include "tags.h"
 
+/*
+tag create_tag (char name)
+{
+	
+}
+
+tag_space create_tag_space (node *scope)
+{
+	tag_space new_tag_space = {scope, NULL, NULL};
+	return new_tag_space;
+}
+*/
+
 void update_tag_spaces(tag_space *current_tag_space, node *old_node, node *new_node)
 {
 	tag *current_tag;

@@ -76,7 +76,7 @@ int main (void)
 	screen_dimensions->width = screen->width_in_pixels;
 	screen_dimensions->height = screen->height_in_pixels;
 
-	int num_bindings = 11;
+	int num_bindings = 12;
 	binding bindings[num_bindings];
 
 	const uint32_t value[1] = {XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY};
@@ -86,7 +86,7 @@ int main (void)
 	bindings[0].key_sym = ' ';
 	bindings[0].modifiers = XCB_MOD_MASK_4;
 	bindings[0].function = (void (*) ()) system;
-	bindings[0].arguments = "exec dmenu_run";
+	bindings[0].arguments = "dmenu_run";
 
 	bindings[1].key_sym = 0xff0d; //'\r';
 	bindings[1].modifiers = XCB_MOD_MASK_4;
@@ -139,6 +139,12 @@ int main (void)
 	bindings[10].function = (void (*) ()) set_next_window_position;
 	bindings[10].arguments = right;
 
+
+	bindings[11].key_sym = 'x';
+	bindings[11].modifiers = XCB_MOD_MASK_4;
+	bindings[11].function = (void (*) ()) exit;
+
+
 	for (int i = 0; i < num_bindings; i++)
 	{
 		bindings[i].key_code = key_sym_to_code(bindings[i].key_sym);
@@ -189,7 +195,8 @@ int main (void)
 				const uint32_t value[1] = {XCB_EVENT_MASK_ENTER_WINDOW};
 				xcb_change_window_attributes(connection, map_event->window, XCB_CW_EVENT_MASK, value);
 
-				xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
+				if (focus)
+					xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
 
 				xcb_flush(connection);
 
@@ -204,7 +211,8 @@ int main (void)
 
 				configure_tree(connection, current_node, *screen_dimensions);
 
-				xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
+				if (focus)
+					xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
 
 				xcb_flush(connection);
 				break;
@@ -216,13 +224,8 @@ void split_focus (xcb_window_t new_id)
 {
 	node *new_window = (node *) create_window(WINDOW, new_id);
 
-	/*
-	if (focus == current_node)
-		current_node = fork_node(focus, new_window, V_SPLIT_CONTAINER);
-	else
-	*/
-
 	fork_node(focus, new_window, next_window_position.split_type);
+
 	if (!next_window_position.child_number)
 		swap_nodes(focus, new_window);
 
