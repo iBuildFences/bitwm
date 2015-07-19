@@ -15,51 +15,45 @@ typedef struct binding
 	xcb_keysym_t key_sym;
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
-	uint8_t *arguments;
-	void (*function) (uint8_t *arguments);
+	void *arguments;
+	void (*function) (void *arguments);
 } binding; 
 
-typedef struct workspace
-{
-	node *top_node;
-	rectangle *dimensions;
-} workspace;
-
-struct
+struct direction
 {
 	uint8_t split_type;
 	uint8_t child_number;
 } next_window_position = {V_SPLIT_CONTAINER, 1};
 
-xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
+enum {LEFT, UP, DOWN, RIGHT};
+struct direction directions[] = {{V_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 1}, {V_SPLIT_CONTAINER, 1}};
 
-void split_focus (xcb_window_t id);
-void kill_focus ();
-void move_focus (uint8_t *direction);
-
+//events 
 void remove_window (window *old_window);
 
+//keybindings
+void split_focus (xcb_window_t id);
 void set_next_window_position(uint8_t *arguments);
+void kill_focus ();
+void change_focus (struct direction *direction);
 
-void update_tree ();
+//utilites
 void remove_tree (node *old_node);
+xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
+void update_tree ();
 void set_references (node *old_node, node *new_node);
 
-node *tree = NULL; //the top node of the tree. parent should always be NULL
-node *current_node = NULL; //the current top node displayed on the screen
-node *focus = NULL; //current focus node
-
-tag_space *tag_spaces;
-
+//function pointers
 void (*map_window)(xcb_window_t id);
 void (*unmap_window)(window *old_window);
 
+node *tree = NULL; //the top node of the tree. parent should always be NULL
+node *screen_node = NULL; //the top node displayed on the screen
+node *focus = NULL; //the node to have input focus
+
+tag_space *tag_spaces;
 xcb_connection_t *connection;
 
-uint8_t left[2] = {V_SPLIT_CONTAINER, 0};
-uint8_t right[2] = {V_SPLIT_CONTAINER, 1};
-uint8_t up[2] = {H_SPLIT_CONTAINER, 0};
-uint8_t down[2] = {H_SPLIT_CONTAINER, 1};
 
 int main (void)
 {
@@ -100,44 +94,44 @@ int main (void)
 
 	bindings[3].key_sym = 'h';
 	bindings[3].modifiers = XCB_MOD_MASK_4;
-	bindings[3].function = (void (*) ()) move_focus;
-	bindings[3].arguments = left;
+	bindings[3].function = (void (*) ()) change_focus;
+	bindings[3].arguments = directions + LEFT;
 
 	bindings[4].key_sym = 'j';
 	bindings[4].modifiers = XCB_MOD_MASK_4;
-	bindings[4].function = (void (*) ()) move_focus;
-	bindings[4].arguments = down;
+	bindings[4].function = (void (*) ()) change_focus;
+	bindings[4].arguments = directions + DOWN;
 
 	bindings[5].key_sym = 'k';
 	bindings[5].modifiers = XCB_MOD_MASK_4;
-	bindings[5].function = (void (*) ()) move_focus;
-	bindings[5].arguments = up;
+	bindings[5].function = (void (*) ()) change_focus;
+	bindings[5].arguments = directions + UP;
 
 	bindings[6].key_sym = 'l';
 	bindings[6].modifiers = XCB_MOD_MASK_4;
-	bindings[6].function = (void (*) ()) move_focus;
-	bindings[6].arguments = right;
+	bindings[6].function = (void (*) ()) change_focus;
+	bindings[6].arguments = directions + RIGHT;
 
 
 	bindings[7].key_sym = 'h';
 	bindings[7].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[7].function = (void (*) ()) set_next_window_position;
-	bindings[7].arguments = left;
+	bindings[7].arguments = directions + LEFT;
 
 	bindings[8].key_sym = 'j';
 	bindings[8].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[8].function = (void (*) ()) set_next_window_position;
-	bindings[8].arguments = down;
+	bindings[8].arguments = directions + DOWN;
 
 	bindings[9].key_sym = 'k';
 	bindings[9].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[9].function = (void (*) ()) set_next_window_position;
-	bindings[9].arguments = up;
+	bindings[9].arguments = directions + UP;
 
 	bindings[10].key_sym = 'l';
 	bindings[10].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
 	bindings[10].function = (void (*) ()) set_next_window_position;
-	bindings[10].arguments = right;
+	bindings[10].arguments = directions + RIGHT;
 
 
 	bindings[11].key_sym = 'x';
@@ -190,7 +184,7 @@ int main (void)
 
 				//update_tree ();
 
-				configure_tree(connection, current_node, *screen_dimensions);
+				configure_tree(connection, screen_node, *screen_dimensions);
 
 				const uint32_t value[1] = {XCB_EVENT_MASK_ENTER_WINDOW};
 				xcb_change_window_attributes(connection, map_event->window, XCB_CW_EVENT_MASK, value);
@@ -209,7 +203,7 @@ int main (void)
 				if (old_window)
 					(*unmap_window)(old_window);
 
-				configure_tree(connection, current_node, *screen_dimensions);
+				configure_tree(connection, screen_node, *screen_dimensions);
 
 				if (focus)
 					xcb_set_input_focus(connection, XCB_INPUT_FOCUS_POINTER_ROOT, ((window *) focus)->id, XCB_CURRENT_TIME);
@@ -218,23 +212,6 @@ int main (void)
 				break;
 		}
 	}
-}
-
-void split_focus (xcb_window_t new_id)
-{
-	node *new_window = (node *) create_window(WINDOW, new_id);
-
-	fork_node(focus, new_window, next_window_position.split_type);
-
-	if (!next_window_position.child_number)
-		swap_nodes(focus, new_window);
-
-	focus = new_window;
-
-	if (focus->parent)
-		set_references(SIBLING(focus), (node *) focus->parent);
-	else
-		set_references(NULL, focus);
 }
 
 /*
@@ -246,6 +223,9 @@ void _tag_space(uint8_t *arguments)
 //seperate funcions for relocating nodes (like to offscreen) should call unmap after unregistering for unmap events.
 
 //use this for unmap requests
+
+//events
+
 void remove_window (window *old_window)
 {
 	node *sibling, *adjacent;
@@ -265,7 +245,27 @@ void remove_window (window *old_window)
 	set_references((node *) unfork_node((node *) old_window), sibling);
 }
 
-void set_next_window_position(uint8_t *arguments)
+
+//keybindings
+
+void split_focus (xcb_window_t new_id)
+{
+	node *new_window = (node *) create_window(WINDOW, new_id);
+
+	fork_node(focus, new_window, next_window_position.split_type);
+
+	if (!next_window_position.child_number)
+		swap_nodes(focus, new_window);
+
+	focus = new_window;
+
+	if (focus->parent)
+		set_references(SIBLING(focus), (node *) focus->parent);
+	else
+		set_references(NULL, focus);
+}
+
+void set_next_window_position(direction *next)
 {
 	next_window_position.split_type = arguments[0];
 	next_window_position.child_number = arguments[1];
@@ -278,7 +278,7 @@ void kill_focus ()
 	xcb_flush(connection);
 	/*
 	node *old_node = focus;
-	if (focus && focus != current_node)
+	if (focus && focus != screen_node)
 		focus = SIBLING(focus);
 	else
 		focus = NULL;
@@ -288,12 +288,10 @@ void kill_focus ()
 	*/
 }
 
-void move_focus (uint8_t *direction)
+//name
+void change_focus (direction *move_direction)
 {
-	uint8_t split_type = direction[0];
-	uint8_t child_number = direction[1];
-
-	window *temp = adjacent_window (focus, split_type, child_number);
+	window *temp = adjacent_window (focus, move_direction->split_type, move_direction->child_number);
 	focus = temp ? (node *) temp : focus;
 	if (focus && focus->type & WINDOW)
 	{
@@ -301,6 +299,9 @@ void move_focus (uint8_t *direction)
 		xcb_flush(connection);
 	}
 }
+
+
+//utilities
 
 //this one probably needs to be rethought
 void remove_tree (node *old_node)
@@ -319,8 +320,8 @@ void set_references (node *old_node, node *new_node)
 {
 	if (focus == old_node)
 		focus = new_node;
-	if (current_node == old_node)
-		current_node = new_node;
+	if (screen_node == old_node)
+		screen_node = new_node;
 	if (tree == old_node)
 		tree = new_node;
 
@@ -330,7 +331,7 @@ void set_references (node *old_node, node *new_node)
 void update_tree ()
 {
 	if (!tree)
-		tree = current_node;
+		tree = screen_node;
 	while (tree && tree->parent)
 		tree = (node *) tree->parent;
 }
