@@ -7,6 +7,7 @@
 
 #include "bin_tree.h"
 #include "tags.h"
+#include "util.h"
 
 xcb_key_symbols_t *keysyms;
 
@@ -15,33 +16,28 @@ typedef struct binding
 	xcb_keysym_t key_sym;
 	xcb_keycode_t key_code;
 	uint16_t modifiers;
-	void *arguments;
-	void (*function) (void *arguments);
+	function_call *action;
 } binding; 
 
-struct direction
+typedef struct direction
 {
 	uint8_t split_type;
 	uint8_t child_number;
-} next_window_position = {V_SPLIT_CONTAINER, 1};
+} direction;
 
 enum {LEFT, UP, DOWN, RIGHT};
-struct direction directions[] = {{V_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 1}, {V_SPLIT_CONTAINER, 1}};
+direction directions[] = {{V_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 0}, {H_SPLIT_CONTAINER, 1}, {V_SPLIT_CONTAINER, 1}};
+
+direction next_window_position = {V_SPLIT_CONTAINER, 1}; //right
 
 //events 
+void split_focus (xcb_window_t id);
 void remove_window (window *old_window);
 
 //keybindings
-void split_focus (xcb_window_t id);
-void set_next_window_position(uint8_t *arguments);
+void set_next_window_position(direction *next);
 void kill_focus ();
-void change_focus (struct direction *direction);
-
-//utilites
-void remove_tree (node *old_node);
-xcb_keycode_t key_sym_to_code (xcb_keysym_t keysym);
-void update_tree ();
-void set_references (node *old_node, node *new_node);
+void move_focus (direction *direction);
 
 //function pointers
 void (*map_window)(xcb_window_t id);
@@ -51,9 +47,10 @@ node *tree = NULL; //the top node of the tree. parent should always be NULL
 node *screen_node = NULL; //the top node displayed on the screen
 node *focus = NULL; //the node to have input focus
 
-tag_space *tag_spaces;
-xcb_connection_t *connection;
+tag *tags = NULL;
 
+//tag_space *tag_spaces;
+xcb_connection_t *connection;
 
 int main (void)
 {
@@ -70,6 +67,8 @@ int main (void)
 	screen_dimensions->width = screen->width_in_pixels;
 	screen_dimensions->height = screen->height_in_pixels;
 
+	//tags = add_tag(tags, create_tag('0', screen_node)); //use config default tag name
+
 	int num_bindings = 12;
 	binding bindings[num_bindings];
 
@@ -79,65 +78,64 @@ int main (void)
 
 	bindings[0].key_sym = ' ';
 	bindings[0].modifiers = XCB_MOD_MASK_4;
-	bindings[0].function = (void (*) ()) system;
-	bindings[0].arguments = "dmenu_run";
+	bindings[0].action = create_function_call(system, "dmenu_run");
 
 	bindings[1].key_sym = 0xff0d; //'\r';
 	bindings[1].modifiers = XCB_MOD_MASK_4;
-	bindings[1].function = (void (*) ()) system;
-	bindings[1].arguments = "xterm &";
+	bindings[1].action = create_function_call(system, "xterm &");
 
 	bindings[2].key_sym = 'q';
 	bindings[2].modifiers = XCB_MOD_MASK_4;
-	bindings[2].function = (void (*) ()) kill_focus;
+	bindings[2].action = create_function_call(kill_focus, NULL);
 
 
 	bindings[3].key_sym = 'h';
 	bindings[3].modifiers = XCB_MOD_MASK_4;
-	bindings[3].function = (void (*) ()) change_focus;
-	bindings[3].arguments = directions + LEFT;
+	bindings[3].action = create_function_call(move_focus, directions + LEFT);
 
 	bindings[4].key_sym = 'j';
 	bindings[4].modifiers = XCB_MOD_MASK_4;
-	bindings[4].function = (void (*) ()) change_focus;
-	bindings[4].arguments = directions + DOWN;
+	bindings[4].action = create_function_call(move_focus, directions + DOWN);
 
 	bindings[5].key_sym = 'k';
 	bindings[5].modifiers = XCB_MOD_MASK_4;
-	bindings[5].function = (void (*) ()) change_focus;
-	bindings[5].arguments = directions + UP;
+	bindings[5].action = create_function_call(move_focus, directions + UP);
 
 	bindings[6].key_sym = 'l';
 	bindings[6].modifiers = XCB_MOD_MASK_4;
-	bindings[6].function = (void (*) ()) change_focus;
-	bindings[6].arguments = directions + RIGHT;
+	bindings[6].action = create_function_call(move_focus, directions + RIGHT);
 
 
 	bindings[7].key_sym = 'h';
 	bindings[7].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
-	bindings[7].function = (void (*) ()) set_next_window_position;
-	bindings[7].arguments = directions + LEFT;
+	bindings[7].action = create_function_call(set_next_window_position, directions + LEFT);
 
 	bindings[8].key_sym = 'j';
 	bindings[8].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
-	bindings[8].function = (void (*) ()) set_next_window_position;
-	bindings[8].arguments = directions + DOWN;
+	bindings[8].action = create_function_call(set_next_window_position, directions + DOWN);
 
 	bindings[9].key_sym = 'k';
 	bindings[9].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
-	bindings[9].function = (void (*) ()) set_next_window_position;
-	bindings[9].arguments = directions + UP;
+	bindings[9].action = create_function_call(set_next_window_position, directions + UP);
 
 	bindings[10].key_sym = 'l';
 	bindings[10].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
-	bindings[10].function = (void (*) ()) set_next_window_position;
-	bindings[10].arguments = directions + RIGHT;
+	bindings[10].action = create_function_call(set_next_window_position, directions + RIGHT);
 
 
 	bindings[11].key_sym = 'x';
 	bindings[11].modifiers = XCB_MOD_MASK_4;
-	bindings[11].function = (void (*) ()) exit;
+	bindings[11].action = create_function_call(exit, NULL);
 
+	/*
+	bindings[12].key_sym = '1';
+	bindings[12].modifiers = XCB_MOD_MASK_4 | XCB_MOD_MASK_SHIFT;
+	bindings[12].action = create_function_call((void (*) ()) add_to_tag, malloc(sizeof(focus)));
+	bingings[12].action.overlays = create_overlay(&focus);
+	/*
+	bindings[12].function = (void (*) ()) add_to_tag;
+	bindings[12].arguments = directions + RIGHT;
+	*/
 
 	for (int i = 0; i < num_bindings; i++)
 	{
@@ -162,17 +160,9 @@ int main (void)
 				xcb_key_press_event_t *key_event = (xcb_key_press_event_t *) event;
 				for (int i = 0; i < num_bindings; i++)
 					if (bindings[i].key_code == key_event->detail && key_event->state == bindings[i].modifiers)
-						bindings[i].function(bindings[i].arguments);
+						call_function(bindings[i].action);
 				break;
-				/*
-			case XCB_ENTER_NOTIFY:;
-				xcb_enter_notify_event_t *enter_notify_event = (xcb_enter_notify_event_t *) event;
-				node *temp;
 
-				if (temp = (node *) find_window(tree, enter_notify_event->event))
-					focus = temp;
-				break;
-				*/
 			case XCB_MAP_NOTIFY:;
 				xcb_map_notify_event_t *map_event = (xcb_map_notify_event_t *) event;
 
@@ -180,7 +170,11 @@ int main (void)
 				xcb_get_window_attributes_reply_t *attributes_reply = xcb_get_window_attributes_reply(connection, attributes_cookie, NULL);
 
 				if (!attributes_reply->override_redirect && !find_window(tree, map_event->window))
+				{
+					//xcb_get_property_cookie_t property_cookie = xcb_get_property(connection, 0, map_event->window, XCB_ATOM_WM_HINTS, 
+					//need to place WM_STATE property on window
 					(*map_window)(map_event->window);
+				}
 
 				//update_tree ();
 
@@ -196,6 +190,7 @@ int main (void)
 
 				free(attributes_reply);
 				break;
+
 			case XCB_UNMAP_NOTIFY:;
 				xcb_unmap_notify_event_t *unmap_event = (xcb_unmap_notify_event_t *) event;
 
@@ -226,6 +221,23 @@ void _tag_space(uint8_t *arguments)
 
 //events
 
+void split_focus (xcb_window_t new_id)
+{
+	node *new_window = (node *) create_window(WINDOW, new_id);
+
+	fork_node(focus, new_window, next_window_position.split_type);
+
+	if (!next_window_position.child_number)
+		swap_nodes(focus, new_window);
+
+	focus = new_window;
+
+	if (focus->parent)
+		set_references(SIBLING(focus), (node *) focus->parent);
+	else
+		set_references(NULL, focus);
+}
+
 void remove_window (window *old_window)
 {
 	node *sibling, *adjacent;
@@ -248,27 +260,10 @@ void remove_window (window *old_window)
 
 //keybindings
 
-void split_focus (xcb_window_t new_id)
-{
-	node *new_window = (node *) create_window(WINDOW, new_id);
-
-	fork_node(focus, new_window, next_window_position.split_type);
-
-	if (!next_window_position.child_number)
-		swap_nodes(focus, new_window);
-
-	focus = new_window;
-
-	if (focus->parent)
-		set_references(SIBLING(focus), (node *) focus->parent);
-	else
-		set_references(NULL, focus);
-}
-
 void set_next_window_position(direction *next)
 {
-	next_window_position.split_type = arguments[0];
-	next_window_position.child_number = arguments[1];
+	next_window_position.split_type = next->split_type;
+	next_window_position.child_number = next->child_number;
 }
 
 //use this for keybindings. should unmap and modify tree as necessary.
@@ -289,7 +284,7 @@ void kill_focus ()
 }
 
 //name
-void change_focus (direction *move_direction)
+void move_focus (direction *move_direction)
 {
 	window *temp = adjacent_window (focus, move_direction->split_type, move_direction->child_number);
 	focus = temp ? (node *) temp : focus;
@@ -299,56 +294,3 @@ void change_focus (direction *move_direction)
 		xcb_flush(connection);
 	}
 }
-
-
-//utilities
-
-//this one probably needs to be rethought
-void remove_tree (node *old_node)
-{
-	if (old_node->type & (H_SPLIT_CONTAINER | V_SPLIT_CONTAINER))
-	{
-		remove_tree(((container *) old_node)->child[0]);
-		remove_tree(((container *) old_node)->child[1]);
-	}
-
-	set_references(old_node, NULL);
-	free(old_node);
-}
-
-void set_references (node *old_node, node *new_node)
-{
-	if (focus == old_node)
-		focus = new_node;
-	if (screen_node == old_node)
-		screen_node = new_node;
-	if (tree == old_node)
-		tree = new_node;
-
-	update_tag_spaces(tag_spaces, old_node, new_node);
-}
-
-void update_tree ()
-{
-	if (!tree)
-		tree = screen_node;
-	while (tree && tree->parent)
-		tree = (node *) tree->parent;
-}
-
-xcb_keycode_t key_sym_to_code(xcb_keysym_t keysym)
-{
-	xcb_keycode_t *key_pointer;
-	xcb_keycode_t key_code;
-
-	key_pointer = xcb_key_symbols_get_keycode(keysyms, keysym);
-
-	if (key_pointer == NULL)
-		return 0;
-
-	key_code = *key_pointer;
-	free(key_pointer);
-
-	return key_code;
-}
-
