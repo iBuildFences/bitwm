@@ -4,20 +4,38 @@ void *call_function (function_call *f)
 {
 	for (int i = 0; i < f->num_overlays; i++)
 	{
-		void *data;
 		if (f->overlays[i].type == DEREFERENCE)
+		{
+			void *data;
 			data = f->overlays[i].replace_data;
+			copy_data(f->arguments + f->overlays[i].replace_index, f->overlays[i].replace_data, f->overlays[i].replace_length);
+			/*
+			for (int j = 0; j < f->overlays[i].replace_length; j++)
+				((uint8_t *) &f->arguments)[f->overlays[i].replace_index + j] = ((uint8_t *) data)[j];
+				*/
+		}
 		else if (f->overlays[i].type == CALL)
-			data = call_function((function_call *) f->overlays[i].replace_data);
+		{
+			void *data = call_function((function_call *) f->overlays[i].replace_data);
+			copy_data(f->arguments + f->overlays[i].replace_index, &data, f->overlays[i].replace_length);
+		}
 		else
 			//print an error message or something. this really shouldn't happen
 			return;
 
+		/*
 		for (int j = 0; j < f->overlays[i].replace_length; j++)
-			((uint8_t *) f->arguments)[f->overlays[i].replace_index + j] = ((uint8_t *) data)[j];
+			((uint8_t *) &f->arguments)[f->overlays[i].replace_index + j] = ((uint8_t *) data)[j];
+			*/
 	}
 
 	return  f->function(f->arguments);
+}
+
+void copy_data (void *destination, void *source, int bytes)
+{
+	for (int i = 0; i < bytes; i++)
+		((uint8_t *) destination)[i] = ((uint8_t *) source)[i];
 }
 
 function_call *create_function_call (void *(*function) (), void *arguments)

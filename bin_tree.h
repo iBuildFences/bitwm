@@ -22,7 +22,7 @@ enum node_types
 {
 	WINDOW = 1,
 	V_SPLIT_CONTAINER = 2,
-	H_SPLIT_CONTAINER = 4
+	H_SPLIT_CONTAINER = 4,
 };
 
 struct node
@@ -56,15 +56,15 @@ container *create_container (uint8_t	type);
 
 node *fork_node (node *existing_node, node *new_node, uint8_t	split_type);
 container *unfork_node (node *old_node);
-void swap_nodes (node *first_node, node *second_node);
 
-window *find_window (node *current_node, xcb_window_t id);
-window *adjacent_window (node *current_node, uint8_t	split_type, uint8_t	child_number);
+window *adjacent_window (node *current_node, uint8_t split_type, uint8_t child_number);
 
 void configure_tree (xcb_connection_t *connection, node *current_node, rectangle dimensions);
 void kill_tree (xcb_connection_t *connection, node *current_node);
 
+/*
 node *create_tree_with_pointers (container *parent, node **pointers, int num_nodes);
 
 void print_tree (node *current_node, int num_tabs);
+*/
 #endif
