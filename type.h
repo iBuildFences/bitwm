@@ -8,7 +8,7 @@ struct type
 	uint8_t type;
 };
 
-//this should include generaic versions of functions like swap_nodes, that operate properly on tags as well as nodes.
+//this should include generic versions of functions like swap_nodes, that operate properly on tags as well as nodes.
 
 void swap_nodes (node *first_node, node *second_node);
 //void swap_types (type *first, type *second);

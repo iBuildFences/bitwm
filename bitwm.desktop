@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=bitwm
+Comment=
+Exec=bitwm
+TryExec=bitwm
+Type=Application
+X-LightDM-DesktopName=bitwm
+DesktopNames=bitwm
+Keywords=tiling;wm;windowmanager;window;manager;

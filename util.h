@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <xcb/xcb_keysyms.h>
 
+/*
 typedef enum overlay_types {DEREFERENCE, CALL} overlay_types;
 
 typedef struct argument_overlay
@@ -24,6 +25,7 @@ void copy_data(void *destination, void *source, int bytes);
 void *call_function (function_call *f);
 function_call *create_function_call (void *(*function) (), void *arguments);
 argument_overlay *create_overlay (void *data);
+*/
 
 void remove_tree (node *old_node);
 void set_references (node *old_node, node *new_node);

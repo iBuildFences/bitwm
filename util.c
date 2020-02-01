@@ -1,5 +1,6 @@
 #include "util.h"
 
+/*
 void *call_function (function_call *f)
 {
 	for (int i = 0; i < f->num_overlays; i++)
@@ -12,7 +13,7 @@ void *call_function (function_call *f)
 			/*
 			for (int j = 0; j < f->overlays[i].replace_length; j++)
 				((uint8_t *) &f->arguments)[f->overlays[i].replace_index + j] = ((uint8_t *) data)[j];
-				*/
+				*\/
 		}
 		else if (f->overlays[i].type == CALL)
 		{
@@ -26,12 +27,13 @@ void *call_function (function_call *f)
 		/*
 		for (int j = 0; j < f->overlays[i].replace_length; j++)
 			((uint8_t *) &f->arguments)[f->overlays[i].replace_index + j] = ((uint8_t *) data)[j];
-			*/
+			*\/
 	}
 
 	return  f->function(f->arguments);
 }
 
+//why are we reimplementing memcpy?
 void copy_data (void *destination, void *source, int bytes)
 {
 	for (int i = 0; i < bytes; i++)
@@ -60,7 +62,9 @@ argument_overlay *create_overlay (void *data)
 
 	return new;
 }
+*/
 
+/*
 //this one probably needs to be rethought
 void remove_tree (node *old_node)
 {
@@ -73,6 +77,7 @@ void remove_tree (node *old_node)
 	set_references(old_node, NULL);
 	free(old_node);
 }
+*/
 
 void set_references (node *old_node, node *new_node)
 {
