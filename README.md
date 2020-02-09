@@ -1,4 +1,4 @@
 # bitwm
-A dynamic, manually tiled, binary tree based X window manager.
-Based on a binary space partitioning concept similar to that of bspwm, and tagging of awesome wm.
-It is currently very experimental, and is missing some slightly important things (like icccm compliance, or any ability to shift windows off screen).
+An X window manager based on binary space partitioning and dynamic tagging.
+Bitwm is very incomplete, and should not be used for anything ever. It is not icccm compliant, can't shift windows offscreen, is not at all configurable, and doesn't come with build instructions or a dependancy list.
+But it does tile windows.
